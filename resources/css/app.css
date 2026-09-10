@@ -3,7 +3,124 @@
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
+@plugin "daisyui" {
+    themes: false;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Branding
+|--------------------------------------------------------------------------
+| These two blocks are the single source of truth for the app's branding.
+| Change the color tokens below to re-skin the whole UI. See README.md
+| ("Adjusting branding colors") for details.
+*/
+@plugin "daisyui/theme" {
+    name: "vividpersona";
+    default: true;
+    prefersdark: false;
+    color-scheme: light;
+
+    --color-base-100: oklch(99% 0.004 286);
+    --color-base-200: oklch(96.5% 0.007 286);
+    --color-base-300: oklch(92% 0.011 286);
+    --color-base-content: oklch(24% 0.02 286);
+    --color-primary: oklch(58% 0.235 295);
+    --color-primary-content: oklch(98% 0.01 295);
+    --color-secondary: oklch(63% 0.24 340);
+    --color-secondary-content: oklch(98% 0.01 340);
+    --color-accent: oklch(70% 0.15 230);
+    --color-accent-content: oklch(22% 0.03 230);
+    --color-neutral: oklch(28% 0.02 286);
+    --color-neutral-content: oklch(98% 0.005 286);
+    --color-info: oklch(70% 0.14 230);
+    --color-info-content: oklch(98% 0.01 230);
+    --color-success: oklch(66% 0.17 152);
+    --color-success-content: oklch(98% 0.01 152);
+    --color-warning: oklch(82% 0.16 82);
+    --color-warning-content: oklch(25% 0.05 82);
+    --color-error: oklch(62% 0.23 27);
+    --color-error-content: oklch(98% 0.01 27);
+
+    --radius-selector: 0.5rem;
+    --radius-field: 0.5rem;
+    --radius-box: 1rem;
+    --size-selector: 0.25rem;
+    --size-field: 0.25rem;
+    --border: 1px;
+    --depth: 0;
+    --noise: 0;
+}
+
+@plugin "daisyui/theme" {
+    name: "vividpersona-dark";
+    default: false;
+    prefersdark: true;
+    color-scheme: dark;
+
+    --color-base-100: oklch(18% 0.02 286);
+    --color-base-200: oklch(22% 0.025 286);
+    --color-base-300: oklch(27% 0.03 286);
+    --color-base-content: oklch(93% 0.01 286);
+    --color-primary: oklch(72% 0.18 295);
+    --color-primary-content: oklch(18% 0.03 295);
+    --color-secondary: oklch(75% 0.17 340);
+    --color-secondary-content: oklch(18% 0.03 340);
+    --color-accent: oklch(77% 0.12 230);
+    --color-accent-content: oklch(18% 0.03 230);
+    --color-neutral: oklch(30% 0.02 286);
+    --color-neutral-content: oklch(93% 0.01 286);
+    --color-info: oklch(75% 0.12 230);
+    --color-info-content: oklch(18% 0.03 230);
+    --color-success: oklch(72% 0.15 152);
+    --color-success-content: oklch(18% 0.03 152);
+    --color-warning: oklch(82% 0.15 82);
+    --color-warning-content: oklch(22% 0.04 82);
+    --color-error: oklch(70% 0.19 27);
+    --color-error-content: oklch(18% 0.03 27);
+
+    --radius-selector: 0.5rem;
+    --radius-field: 0.5rem;
+    --radius-box: 1rem;
+    --size-selector: 0.25rem;
+    --size-field: 0.25rem;
+    --border: 1px;
+    --depth: 0;
+    --noise: 0;
+}
+
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+
+    --animate-float: float 6s ease-in-out infinite;
+    --animate-float-slow: float 9s ease-in-out infinite;
+    --animate-orb: orb 20s ease-in-out infinite;
+
+    @keyframes float {
+        0%,
+        100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(-14px);
+        }
+    }
+
+    @keyframes orb {
+        0%,
+        100% {
+            transform: translate(0, 0) scale(1);
+        }
+        50% {
+            transform: translate(30px, -24px) scale(1.08);
+        }
+    }
+}
+
+/* Map Tailwind's `dark:` variant onto the custom dark theme. */
+@custom-variant dark (&:where([data-theme="vividpersona-dark"], [data-theme="vividpersona-dark"] *));
+
+[x-cloak] {
+    display: none !important;
 }

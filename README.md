@@ -1,58 +1,197 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# VividPersona
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A modern Laravel base template built with **Tailwind CSS v4**, **DaisyUI 5** and
+**Alpine.js** — themed, responsive and ready for real screens.
 
-## About Laravel
+## Stack
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+| Layer | Technology |
+| --- | --- |
+| Backend | Laravel 13 (PHP 8.5) |
+| Styling | Tailwind CSS v4 (CSS-first config) |
+| Components | DaisyUI 5 |
+| Interactivity | Alpine.js 3 |
+| Bundler | Vite 8 |
+| Tests | Pest |
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Requirements
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- PHP 8.5+
+- Composer
+- Node.js 20+ and npm
 
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Getting started
 
 ```bash
-composer require laravel/boost --dev
+composer install
+npm install
 
-php artisan boost:install
+cp .env.example .env
+php artisan key:generate
+
+php artisan migrate
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Run the app (Vite dev server + queue + logs in one command):
 
-## Contributing
+```bash
+composer run dev
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Or run the pieces separately:
 
-## Code of Conduct
+```bash
+php artisan serve
+npm run dev
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Build production assets:
 
-## Security Vulnerabilities
+```bash
+npm run build
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Project structure
 
-## License
+```
+resources/
+  css/app.css                     Tailwind + DaisyUI themes (branding lives here)
+  js/app.js                       Alpine.js entry point
+  views/
+    landing.blade.php             Public landing page
+    dashboard.blade.php           Dashboard placeholder page
+    components/
+      layouts/head.blade.php      Shared <head> (meta, theme prepaint, @vite)
+      layouts/app.blade.php       Public shell: navbar + content + footer
+      layouts/dashboard.blade.php Dashboard shell: sidebar drawer + header
+      navbar.blade.php
+      sidebar.blade.php
+      footer.blade.php
+      flash.blade.php             Session/validation alerts
+      theme-toggle.blade.php      Light/dark switch (persisted)
+      button.blade.php
+      card.blade.php
+      badge.blade.php
+      page-header.blade.php
+      empty-state.blade.php
+routes/web.php                    home + dashboard routes
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Adjusting branding colors
+
+All branding is defined in **`resources/css/app.css`** using DaisyUI theme
+tokens. There are two theme blocks:
+
+- `vividpersona` — the light theme (`default: true`)
+- `vividpersona-dark` — the dark theme (`prefersdark: true`)
+
+Change the values inside those blocks and every component updates automatically.
+
+```css
+@plugin "daisyui/theme" {
+    name: "vividpersona";
+    default: true;
+    color-scheme: light;
+
+    --color-primary: oklch(58% 0.235 295); /* main brand color */
+    --color-secondary: oklch(63% 0.24 340); /* supporting color */
+    --color-accent: oklch(70% 0.15 230); /* highlight color */
+    /* ... */
+}
+```
+
+### Token reference
+
+| Token | Used for |
+| --- | --- |
+| `--color-primary` / `--color-primary-content` | Primary buttons, links, brand accents |
+| `--color-secondary` / `--color-secondary-content` | Secondary accents and gradients |
+| `--color-accent` / `--color-accent-content` | Highlights and badges |
+| `--color-neutral` / `--color-neutral-content` | Neutral surfaces and text |
+| `--color-base-100` | Page background |
+| `--color-base-200` | Subtle raised sections |
+| `--color-base-300` | Borders and stronger surfaces |
+| `--color-base-content` | Default text color |
+| `--color-info` / `--color-success` / `--color-warning` / `--color-error` | Status alerts |
+
+Each color also has a matching `*-content` token that controls the readable text
+color placed on top of it.
+
+Colors are written in [`oklch()`](https://oklch.com/), but any valid CSS color
+(e.g. `#7c3aed`) works too. Change both theme blocks to keep light and dark in
+sync.
+
+### Other theme knobs
+
+Inside each theme block you can also adjust:
+
+| Token | Controls |
+| --- | --- |
+| `--radius-box` | Cards and larger containers |
+| `--radius-field` | Inputs and buttons |
+| `--radius-selector` | Checkboxes, toggles, badges |
+| `--border` | Global border width |
+| `--depth` / `--noise` | Subtle depth effects (0 = flat) |
+
+### Renaming the themes
+
+The theme names are referenced in a few places. If you rename `vividpersona`
+and `vividpersona-dark`, update all of them:
+
+- `resources/css/app.css` — the `name:` of each `@plugin "daisyui/theme"` block
+- `resources/views/components/layouts/head.blade.php` — the theme names in the
+  prepaint script
+- `resources/views/components/layouts/app.blade.php` — the `<html data-theme>`
+  default
+- `resources/views/components/layouts/dashboard.blade.php` — the
+  `<html data-theme>` default
+- `resources/views/components/theme-toggle.blade.php` — the toggle logic
+
+### Adding more themes
+
+Add another `@plugin "daisyui/theme"` block with a unique `name` and set
+`data-theme="your-theme"` on the `<html>` element (or any element) to use it.
+See the [DaisyUI themes documentation](https://daisyui.com/docs/themes/).
+
+## Using the components
+
+```blade
+<x-button :href="route('dashboard')">Open dashboard</x-button>
+<x-button variant="outline" size="sm">Secondary</x-button>
+
+<x-card title="Title" subtitle="Supporting text">
+    <p>Card body.</p>
+    <x-slot:actions>
+        <x-badge variant="primary">New</x-badge>
+    </x-slot:actions>
+</x-card>
+
+<x-page-header title="Overview" subtitle="Workspace summary">
+    <x-slot:actions>
+        <x-button size="sm">Action</x-button>
+    </x-slot:actions>
+</x-page-header>
+
+<x-empty-state title="Nothing here yet" description="Add your first item." />
+```
+
+Layouts are used as components:
+
+```blade
+<x-layouts.app title="Page title">...</x-layouts.app>
+<x-layouts.dashboard title="Overview">...</x-layouts.dashboard>
+```
+
+## Theming behaviour
+
+The saved theme is stored in `localStorage` under the `theme` key. On first
+visit the app falls back to the operating system preference. An inline script in
+`components/layouts/head.blade.php` applies the theme before first paint to
+avoid a flash of the wrong theme.
+
+## Testing and formatting
+
+```bash
+php artisan test --compact   # run the test suite
+vendor/bin/pint --dirty      # format changed PHP files
+```
