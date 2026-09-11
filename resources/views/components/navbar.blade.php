@@ -1,8 +1,8 @@
 @php
     $links = [
-        ['label' => 'Home', 'url' => route('home'), 'active' => request()->routeIs('home')],
-        ['label' => 'Features', 'url' => route('home').'#features', 'active' => false],
-        ['label' => 'Theming', 'url' => route('home').'#theming', 'active' => false],
+        ['label' => __('nav.home'), 'url' => route('home'), 'active' => request()->routeIs('home')],
+        ['label' => __('nav.features'), 'url' => route('home').'#features', 'active' => false],
+        ['label' => __('nav.theming'), 'url' => route('home').'#theming', 'active' => false],
     ];
 @endphp
 
@@ -35,16 +35,58 @@
         <div class="ml-auto flex items-center gap-1.5">
             <x-theme-toggle />
 
-            <x-button :href="route('dashboard')" size="sm" class="hidden sm:inline-flex">
-                Open dashboard
-            </x-button>
+            <div x-data="{ open: false }" class="relative">
+                <button
+                    type="button"
+                    class="btn btn-ghost btn-sm gap-1"
+                    @click="open = !open"
+                    @click.away="open = false"
+                    :aria-expanded="open"
+                    :aria-label="'{{ __('nav.language') }}'"
+                >
+                    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18" />
+                    </svg>
+                    <span class="hidden text-xs font-semibold uppercase sm:inline">{{ app()->getLocale() }}</span>
+                    <svg class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M6 9l6 6 6-6" />
+                    </svg>
+                </button>
+
+                <div x-show="open" x-cloak x-transition @click.away="open = false" class="absolute right-0 z-50 mt-2 w-40 rounded-box border border-base-300 bg-base-100 p-1 shadow-lg">
+                    @foreach (['en' => 'English', 'de' => 'Deutsch'] as $locale => $name)
+                        <form method="POST" action="{{ route('locale.update') }}">
+                            @csrf
+                            <input type="hidden" name="locale" value="{{ $locale }}" />
+                            <button
+                                type="submit"
+                                class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-base-200 {{ app()->getLocale() === $locale ? 'font-semibold' : '' }}"
+                            >{{ $name }}</button>
+                        </form>
+                    @endforeach
+                </div>
+            </div>
+
+            @auth
+                <x-button :href="route('dashboard')" size="sm" class="hidden sm:inline-flex">
+                    {{ __('nav.open_dashboard') }}
+                </x-button>
+            @else
+                <x-button :href="route('login')" variant="ghost" size="sm" class="hidden sm:inline-flex">
+                    {{ __('auth.login') }}
+                </x-button>
+                <x-button :href="route('register')" size="sm" class="hidden sm:inline-flex">
+                    {{ __('auth.register') }}
+                </x-button>
+            @endauth
 
             <button
                 type="button"
                 class="btn btn-square btn-ghost btn-sm md:hidden"
                 @click="open = !open"
                 :aria-expanded="open"
-                aria-label="Toggle navigation"
+                aria-label="{{ __('nav.toggle') }}"
             >
                 <svg x-show="!open" class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
                     <path d="M4 6h16M4 12h16M4 18h16" />
@@ -63,7 +105,13 @@
                     {{ $link['label'] }}
                 </a>
             @endforeach
-            <x-button :href="route('dashboard')" size="sm" class="mt-1">Open dashboard</x-button>
+
+            @auth
+                <x-button :href="route('dashboard')" size="sm" class="mt-1">{{ __('nav.open_dashboard') }}</x-button>
+            @else
+                <x-button :href="route('login')" variant="ghost" size="sm" class="mt-1 justify-start">{{ __('auth.login') }}</x-button>
+                <x-button :href="route('register')" size="sm" class="mt-1">{{ __('auth.register') }}</x-button>
+            @endauth
         </nav>
     </div>
 </header>

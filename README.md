@@ -189,6 +189,82 @@ visit the app falls back to the operating system preference. An inline script in
 `components/layouts/head.blade.php` applies the theme before first paint to
 avoid a flash of the wrong theme.
 
+## Plans and user settings
+
+Each user has a `meta` JSON column that is cast to a typed value object,
+`App\ValueObjects\UserSettings`, via `App\Casts\AsUserSettings`. Only the keys
+declared in the value object are read and written — any other key is dropped —
+so the column cannot accumulate unrelated data.
+
+Two settings exist today:
+
+| Setting | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `current_plan` | `App\Enums\Plan` | `Plan::Free` | The user's active plan |
+| `max_teams` | `int` | `1` | How many teams the user may own |
+
+### Using it
+
+```php
+$user->meta->currentPlan;   // Plan::Free
+$user->meta->maxTeams;      // 1
+
+// Mutate and save (auto-synced, like a model)
+$user->meta->maxTeams = 5;
+$user->save();
+
+// Or assign a full value
+$user->meta = ['current_plan' => Plan::Pro->value, 'max_teams' => 10];
+$user->meta = new \App\ValueObjects\UserSettings(Plan::Pro, 10);
+$user->save();
+```
+
+`$user->toArray()['meta']` always serializes to exactly
+`{ "current_plan": ..., "max_teams": ... }`.
+
+### Configuring the plans
+
+Plans live in `app/Enums/Plan.php` as a backed string enum. To add a plan, add a
+case:
+
+```php
+enum Plan: string
+{
+    case Free = 'free';
+    case Pro = 'pro';        // add new plans here
+    case Business = 'business';
+}
+```
+
+The stored value is the enum's backing value (`'free'`, `'pro'`, ...), so adding
+a case is backwards compatible and existing users keep their plan.
+
+To change the defaults applied to new users (and to users with no stored
+settings), edit the `UserSettings` constructor in
+`app/ValueObjects/UserSettings.php`:
+
+```php
+public function __construct(?Plan $currentPlan = null, ?int $maxTeams = null)
+{
+    $this->currentPlan = $currentPlan ?? Plan::Free;
+    $this->maxTeams = $maxTeams ?? 1;
+}
+```
+
+If a plan should imply its own team limit, set both together wherever the plan
+is changed, for example:
+
+```php
+$user->meta->currentPlan = Plan::Pro;
+$user->meta->maxTeams = 10;
+$user->save();
+```
+
+Because the cast whitelists keys, always go through the value object (or an
+array with the known keys) rather than writing raw JSON. Adding a new setting
+means adding a typed property, handling it in `fromArray()`/`toArray()`, and
+choosing its default in the constructor.
+
 ## Testing and formatting
 
 ```bash

@@ -8,10 +8,10 @@
             localStorage.setItem('theme', this.theme);
         },
     }"
-    @click="toggle()"
+@click="toggle()"
     class="btn btn-ghost btn-circle btn-sm"
-    :aria-label="theme === 'vividpersona-dark' ? 'Switch to light mode' : 'Switch to dark mode'"
-    :title="theme === 'vividpersona-dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+    :aria-label="theme === 'vividpersona-dark' ? '{{ __('theme.switch_to_dark') }}' : '{{ __('theme.switch_to_light') }}'"
+    :title="theme === 'vividpersona-dark' ? '{{ __('theme.switch_to_dark') }}' : '{{ __('theme.switch_to_light') }}'"
     {{ $attributes }}
 >
     <svg class="size-5 block dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">

@@ -1,6 +1,7 @@
 @php
     $navigation = [
-        ['label' => 'Overview', 'url' => route('dashboard'), 'active' => request()->routeIs('dashboard')],
+        ['label' => __('nav.overview'), 'url' => route('dashboard'), 'active' => request()->routeIs('dashboard')],
+        ['label' => __('nav.teams'), 'url' => route('teams.index'), 'active' => request()->routeIs('teams.*')],
     ];
 @endphp
 
@@ -23,10 +24,24 @@
                 </a>
             </li>
         @endforeach
+
+        @if (auth()->user()?->is_super_admin)
+            <li class="menu-title mt-4">{{ __('admin.nav_title') }}</li>
+            <li>
+                <a href="{{ route('backend.user.index') }}" class="{{ request()->routeIs('backend.user.*') ? 'active' : '' }}">
+                    {{ __('admin.nav.users') }}
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('backend.api-provider.index') }}" class="{{ request()->routeIs('backend.api-provider.*') ? 'active' : '' }}">
+                    {{ __('admin.nav.providers') }}
+                </a>
+            </li>
+        @endif
     </ul>
 
     <div class="mt-auto flex items-center justify-between gap-2 rounded-box border border-base-300 p-2">
-        <a href="{{ route('home') }}" class="btn btn-ghost btn-sm">Back to site</a>
+        <a href="{{ route('home') }}" class="btn btn-ghost btn-sm">{{ __('nav.back_to_site') }}</a>
         <x-theme-toggle />
     </div>
 </aside>
