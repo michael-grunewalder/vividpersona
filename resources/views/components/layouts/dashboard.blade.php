@@ -23,7 +23,7 @@
                 <span class="font-semibold tracking-tight">{{ $title ?? 'Dashboard' }}</span>
 
                 <div class="ml-auto flex items-center gap-1.5">
-                    <x-theme-toggle />
+                    <x-user-menu />
                 </div>
             </header>
 

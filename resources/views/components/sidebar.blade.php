@@ -1,7 +1,6 @@
 @php
     $navigation = [
         ['label' => __('nav.overview'), 'url' => route('dashboard'), 'active' => request()->routeIs('dashboard')],
-        ['label' => __('nav.teams'), 'url' => route('teams.index'), 'active' => request()->routeIs('teams.*')],
     ];
 @endphp
 
@@ -15,6 +14,8 @@
         </span>
         <span class="text-[15px]">{{ config('app.name') }}</span>
     </a>
+
+    <x-team-switcher class="mt-6" />
 
     <ul class="menu mt-6 w-full gap-1 p-0">
         @foreach ($navigation as $item)

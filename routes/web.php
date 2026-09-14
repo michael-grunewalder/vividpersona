@@ -5,7 +5,9 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\CurrentTeamController;
 use App\Http\Controllers\LocaleController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\TeamInvitationController;
 use App\Http\Controllers\TeamMemberController;
@@ -39,7 +41,14 @@ Route::middleware(['auth', 'verified', 'super-admin'])
         Route::resource('user', UserController::class);
     });
 
-Route::view('/dashboard', 'dashboard')->middleware(['auth', 'verified'])->name('dashboard');
+Route::view('/dashboard', 'dashboard')->middleware(['auth', 'verified', 'team.context'])->name('dashboard');
+
+Route::middleware(['auth', 'verified', 'team.context'])->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+
+    Route::post('/current-team', [CurrentTeamController::class, 'update'])->name('current-team.update');
+});
 
 Route::middleware(['auth', 'verified', 'team.context'])->group(function () {
     Route::get('/teams', [TeamController::class, 'index'])->name('teams.index');

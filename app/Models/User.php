@@ -16,14 +16,40 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'email', 'password', 'meta'])]
+#[Fillable(['name', 'email', 'password', 'meta', 'avatar_path'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasRoles, HasUlids, Notifiable;
+
+    /**
+     * The user's avatar URL: uploaded avatar, otherwise Gravatar.
+     */
+    public function avatarUrl(): ?string
+    {
+        if ($this->avatar_path) {
+            return Storage::disk('public')->url($this->avatar_path);
+        }
+
+        return 'https://www.gravatar.com/avatar/'.md5(strtolower(trim($this->email))).'?s=96&d=404';
+    }
+
+    /**
+     * Initials derived from the user's name (up to two letters).
+     */
+    public function initials(): string
+    {
+        $letters = array_map(
+            fn (string $word) => mb_strtoupper(mb_substr($word, 0, 1)),
+            array_slice(preg_split('/\s+/', trim($this->name) ?: '?'), 0, 2),
+        );
+
+        return implode('', $letters) ?: '?';
+    }
 
     /**
      * Default attribute values for new model instances.
@@ -53,6 +79,40 @@ class User extends Authenticatable implements MustVerifyEmail
     public function belongsToTeam(Team $team): bool
     {
         return $this->teams()->whereKey($team->getKey())->exists();
+    }
+
+    /**
+     * The user's active team (session-backed, defaulting to their first team).
+     */
+    public function currentTeam(): ?Team
+    {
+        $teams = $this->teams;
+
+        if ($teamId = session('current_team_id')) {
+            $team = $teams->firstWhere('id', $teamId);
+
+            if ($team) {
+                return $team;
+            }
+
+            session()->forget('current_team_id');
+        }
+
+        $team = $teams->sortBy('created_at')->first();
+
+        if ($team) {
+            session(['current_team_id' => $team->getKey()]);
+        }
+
+        return $team;
+    }
+
+    /**
+     * Set the user's active team in the session.
+     */
+    public function setCurrentTeam(Team $team): void
+    {
+        session(['current_team_id' => $team->getKey()]);
     }
 
     public function hasRoleInTeam(Team $team, string|array $roles): bool

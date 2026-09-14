@@ -19,11 +19,13 @@ class SetTeamContext
     {
         $team = $this->resolveTeam($request);
 
-        setPermissionsTeamId($team?->getKey());
-
         if ($user = $request->user()) {
+            $team ??= $user->currentTeam();
+
             $user->unsetRelation('roles')->unsetRelation('permissions');
         }
+
+        setPermissionsTeamId($team?->getKey());
 
         return $next($request);
     }

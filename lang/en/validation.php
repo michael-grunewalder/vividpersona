@@ -208,6 +208,8 @@ return [
         'plan' => 'Plan',
         'max_teams' => 'Max teams',
         'role' => 'Role',
+        'avatar' => 'Avatar',
+        'current_password' => 'Current password',
     ],
 
 ];
