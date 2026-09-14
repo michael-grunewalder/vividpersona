@@ -24,6 +24,8 @@
         @foreach ($options as $value => $optionLabel)
             <option value="{{ $value }}" @selected($selected == $value)>{{ $optionLabel }}</option>
         @endforeach
+
+        {{ $slot }}
     </select>
 
     @if ($error)

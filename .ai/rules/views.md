@@ -19,3 +19,6 @@ A bare `@elsecan` (no arguments) compiles to `elseif (app(Gate::class)->check)` 
 
 ## Use Js::from (not @json) inside HTML attributes
 Never inject `@json($arrayOrObject)` into a double-quoted HTML attribute (e.g. Alpine `x-data`): json_encode leaves structural quotes raw, terminating the attribute and silently killing the Alpine component. Use `{{ Illuminate\Support\Js::from($value) }}` instead (emits HTML-safe `JSON.parse('...')`). Bare booleans/numbers via `@json` are fine.
+
+## Never call __() inside Alpine :bindings on plain HTML elements
+On a plain HTML element, `:attr="..."` is an Alpine binding evaluated in JS, so `__()` (a PHP function) throws `ReferenceError: __ is not defined` and breaks the whole Alpine component (symptoms: wizard buttons/clicks stop working). Only Blade components (`<x-... :prop="__()">`) treat a leading colon as a server-side prop binding. For plain elements use `attr="{{ __('...') }}"`. To interpolate a PHP string into an Alpine expression, embed it as `'{{ __('...') }}'` (JS string), not a bare call.

@@ -1,6 +1,8 @@
 @php
     $navigation = [
         ['label' => __('nav.overview'), 'url' => route('dashboard'), 'active' => request()->routeIs('dashboard')],
+        ['label' => __('nav.influencers'), 'url' => route('influencers.index'), 'active' => request()->routeIs('influencers.*')],
+        ['label' => __('nav.connections'), 'url' => route('connections.index'), 'active' => request()->routeIs('connections.*')],
     ];
 @endphp
 

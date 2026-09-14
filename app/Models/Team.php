@@ -45,4 +45,27 @@ class Team extends Model
     {
         return $this->hasMany(TeamInvitation::class);
     }
+
+    /**
+     * @return HasMany<ProviderConnection, $this>
+     */
+    public function connections(): HasMany
+    {
+        return $this->hasMany(ProviderConnection::class);
+    }
+
+    public function connectionFor(ApiProvider $provider): ?ProviderConnection
+    {
+        return $this->connections()->where('provider_id', $provider->getKey())->first();
+    }
+
+    /**
+     * The decrypted credential values for a provider, keyed by meta field name.
+     *
+     * @return array<string, string|null>
+     */
+    public function providerCredentials(ApiProvider $provider): array
+    {
+        return $this->connectionFor($provider)?->credentials ?? [];
+    }
 }

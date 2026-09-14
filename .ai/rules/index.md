@@ -13,5 +13,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | lang/** | .ai/rules/lang.md |
 | app/Http/Middleware/** | .ai/rules/middleware.md |
 | app/Models/** | .ai/rules/models.md |
+| app/Support/Prompt/** | .ai/rules/prompt.md |
+| app/Services/** | .ai/rules/services.md |
 | app/ValueObjects/** | .ai/rules/value-objects.md |
 | resources/views/** | .ai/rules/views.md |

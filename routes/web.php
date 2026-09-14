@@ -5,7 +5,9 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\ConnectionController;
 use App\Http\Controllers\CurrentTeamController;
+use App\Http\Controllers\InfluencerController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TeamController;
@@ -13,7 +15,7 @@ use App\Http\Controllers\TeamInvitationController;
 use App\Http\Controllers\TeamMemberController;
 use Illuminate\Support\Facades\Route;
 
-Route::view('/', 'landing')->name('home');
+Route::get('/', fn () => auth()->check() ? redirect()->route('dashboard') : view('landing'))->name('home');
 
 Route::middleware('guest')->group(function () {
     Route::get('/register', [RegisteredUserController::class, 'create'])->name('register');
@@ -48,6 +50,17 @@ Route::middleware(['auth', 'verified', 'team.context'])->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
 
     Route::post('/current-team', [CurrentTeamController::class, 'update'])->name('current-team.update');
+
+    Route::get('/connections', [ConnectionController::class, 'index'])->name('connections.index');
+    Route::post('/connections/{provider}', [ConnectionController::class, 'store'])->name('connections.store');
+
+    Route::get('/influencers', [InfluencerController::class, 'index'])->name('influencers.index');
+    Route::get('/influencers/create', [InfluencerController::class, 'create'])->name('influencers.create');
+    Route::post('/influencers', [InfluencerController::class, 'store'])->name('influencers.store');
+    Route::get('/influencers/{influencer}', [InfluencerController::class, 'show'])->name('influencers.show');
+    Route::get('/influencers/{influencer}/status', [InfluencerController::class, 'status'])->name('influencers.status');
+    Route::post('/influencers/{influencer}/sets', [InfluencerController::class, 'generateSet'])->name('influencers.generate-set');
+    Route::post('/influencers/{influencer}/choose', [InfluencerController::class, 'choose'])->name('influencers.choose');
 });
 
 Route::middleware(['auth', 'verified', 'team.context'])->group(function () {
