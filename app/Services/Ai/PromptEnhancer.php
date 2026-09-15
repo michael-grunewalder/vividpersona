@@ -2,36 +2,31 @@
 
 namespace App\Services\Ai;
 
+use App\Enums\ApiService;
 use App\Models\Team;
-use Laravel\Ai\Enums\Lab;
-
-use function Laravel\Ai\agent;
 
 final class PromptEnhancer
 {
     /**
-     * Enhance a prompt, preferring the provider's own enhancer when available.
-     * WaveSpeed's REST enhancer endpoint is not yet exposed, so we fall back to
-     * Claude via the team's LLM connection. Returns the original prompt on failure.
+     * Enhance a prompt with the team's LLM client. Returns the original
+     * prompt when no LLM is connected or the call fails.
      */
-    public static function enhance(Team $team, string $prompt): string
+    public static function enhance(Team $team, string $prompt, ?ApiService $override = null): string
     {
-        $key = BackstoryAnalyst::llmCredentials($team);
+        $client = LlmClientFactory::forTeam($team, $override);
 
-        if ($key === null) {
+        if ($client === null) {
             return $prompt;
         }
 
-        config(['ai.providers.anthropic.key' => $key]);
+        $enhanced = $client->text(
+            'You are a prompt engineer for photorealistic AI image generation. '
+                .'Improve the given prompt while keeping its subject, pose, wardrobe, scene and style intent '
+                .'exactly intact. Return only the improved prompt text.',
+            $prompt,
+            timeout: 120,
+        );
 
-        try {
-            return (string) agent(
-                instructions: 'You are a prompt engineer for photorealistic AI image generation. '
-                    .'Improve the given prompt while keeping its subject, pose, wardrobe, scene and style intent '
-                    .'exactly intact. Return only the improved prompt text.',
-            )->prompt($prompt, provider: Lab::Anthropic, model: 'claude-haiku-4-5-20251001', timeout: 120)->text;
-        } catch (\Throwable) {
-            return $prompt;
-        }
+        return $enhanced ?? $prompt;
     }
 }

@@ -320,7 +320,7 @@ final class BackstoryArchetypes
             'lockedScene' => null,
         ],
         [
-            'test' => '/fashion.?blogger|fashion.?influencer/',
+            'test' => '/fashion.?blogger|fashion.?persona/',
             'tags' => ['editorial', 'bold'],
             'sceneNiche' => 'fashion',
             'buildHint' => null,
@@ -352,7 +352,7 @@ final class BackstoryArchetypes
             'lockedScene' => null,
         ],
         [
-            'test' => '/beauty.?blogger|beauty.?influencer/',
+            'test' => '/beauty.?blogger|beauty.?persona/',
             'tags' => ['glam', 'clean', 'natural'],
             'sceneNiche' => 'beauty',
             'buildHint' => null,
@@ -690,7 +690,7 @@ final class BackstoryArchetypes
 
         // ── TRAVEL & LIFESTYLE ──────────────────────────────────────
         [
-            'test' => '/travel.?blogger|travel.?influencer|travel.?creator|travel.?vlog|\btravell?ing\b/',
+            'test' => '/travel.?blogger|travel.?persona|travel.?creator|travel.?vlog|\btravell?ing\b/',
             'tags' => ['bohemian', 'casual', 'coastal'],
             'sceneNiche' => 'travel',
             'buildHint' => null,

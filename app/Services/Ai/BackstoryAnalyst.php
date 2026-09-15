@@ -2,20 +2,14 @@
 
 namespace App\Services\Ai;
 
-use App\Enums\ApiProviderType;
-use App\Models\ApiProvider;
+use App\Enums\ApiService;
 use App\Models\Team;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Ai\Attributes\MaxTokens;
-use Laravel\Ai\Attributes\Model;
-use Laravel\Ai\Attributes\Provider;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasStructuredOutput;
-use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Promptable;
 
-#[Provider(Lab::Anthropic)]
-#[Model('claude-haiku-4-5-20251001')]
 #[MaxTokens(200)]
 class BackstoryAnalyst implements Agent, HasStructuredOutput
 {
@@ -23,7 +17,7 @@ class BackstoryAnalyst implements Agent, HasStructuredOutput
 
     public function instructions(): string
     {
-        return 'You analyze an AI influencer backstory for a photo prompt engine. Return only JSON '
+        return 'You analyze an AI persona backstory for a photo prompt engine. Return only JSON '
             .'with a "sceneNiche" (one of: fashion, beauty, lifestyle, fitness, travel, tech, gaming, entertainment) '
             .'and "tags" (an array of strings from: quiet, minimalist, clean, structured, editorial, casual, urban, street, dark, '
             .'moody, earthy, natural, bohemian, cottagecore, y2k, playful, nostalgic, glam, bold, evening, sport, functional, '
@@ -39,22 +33,26 @@ class BackstoryAnalyst implements Agent, HasStructuredOutput
     }
 
     /**
-     * Analyze the backstory with the team's LLM connection, or return null.
+     * Analyze the backstory with the team's LLM client, or return null.
      *
      * @return array{sceneNiche: string, tags: array<int, string>}|null
      */
-    public static function analyze(Team $team, string $backstory, string $physicalDesc): ?array
+    public static function analyze(Team $team, string $backstory, string $physicalDesc, ?ApiService $override = null): ?array
     {
-        $credentials = self::llmCredentials($team);
+        $client = LlmClientFactory::forTeam($team, $override);
 
-        if ($credentials === null) {
+        if ($client === null) {
             return null;
         }
 
-        config(['ai.providers.anthropic.key' => $credentials]);
+        $client->configure();
 
         try {
-            $response = (new static)->prompt("Backstory: {$backstory}\n\nPhysical description: {$physicalDesc}");
+            $response = (new static)->prompt(
+                "Backstory: {$backstory}\n\nPhysical description: {$physicalDesc}",
+                provider: $client->lab(),
+                model: $client->model(),
+            );
 
             return [
                 'sceneNiche' => $response['sceneNiche'] ?? 'lifestyle',
@@ -63,20 +61,5 @@ class BackstoryAnalyst implements Agent, HasStructuredOutput
         } catch (\Throwable) {
             return null;
         }
-    }
-
-    /**
-     * The team's Anthropic key, or null when the team has no LLM connection.
-     */
-    public static function llmCredentials(Team $team): ?string
-    {
-        $provider = ApiProvider::query()
-            ->where('type', ApiProviderType::Llm)
-            ->orderByRaw("machine_name = 'claude' DESC, machine_name = 'anthropic' DESC")
-            ->first();
-
-        $key = $provider ? ($team->providerCredentials($provider)['api_key'] ?? null) : null;
-
-        return filled($key) ? (string) $key : null;
     }
 }

@@ -1,0 +1,32 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::rename('influencers', 'personas');
+
+        Schema::table('personas', function (Blueprint $table) {
+            $table->string('reference_image_path')->nullable()->after('main_image');
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table('personas', function (Blueprint $table) {
+            $table->dropColumn('reference_image_path');
+        });
+
+        Schema::rename('personas', 'influencers');
+    }
+};

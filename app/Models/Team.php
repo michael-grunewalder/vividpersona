@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ApiService;
 use Database\Factories\TeamFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'slug', 'owner_id'])]
+#[Fillable(['name', 'slug', 'owner_id', 'default_llm'])]
 class Team extends Model
 {
     /** @use HasFactory<TeamFactory> */
@@ -47,25 +48,50 @@ class Team extends Model
     }
 
     /**
-     * @return HasMany<ProviderConnection, $this>
+     * @return HasMany<TeamApiCredential, $this>
      */
-    public function connections(): HasMany
+    public function apiCredentials(): HasMany
     {
-        return $this->hasMany(ProviderConnection::class);
+        return $this->hasMany(TeamApiCredential::class);
     }
 
-    public function connectionFor(ApiProvider $provider): ?ProviderConnection
+    public function credentialFor(ApiService $service): ?TeamApiCredential
     {
-        return $this->connections()->where('provider_id', $provider->getKey())->first();
+        return $this->apiCredentials()->where('service', $service->value)->first();
     }
 
     /**
-     * The decrypted credential values for a provider, keyed by meta field name.
+     * The decrypted credential values for a service, keyed by field name.
      *
      * @return array<string, string|null>
      */
-    public function providerCredentials(ApiProvider $provider): array
+    public function credentialsFor(ApiService $service): array
     {
-        return $this->connectionFor($provider)?->credentials ?? [];
+        return $this->credentialFor($service)?->credentials ?? [];
+    }
+
+    public function hasCredential(ApiService $service): bool
+    {
+        return filled($this->credentialFor($service)?->apiKey());
+    }
+
+    /**
+     * The team's chosen LLM service, falling back to the first connected one.
+     */
+    public function defaultLlmService(): ?ApiService
+    {
+        $configured = ApiService::tryFrom((string) $this->default_llm);
+
+        if ($configured?->isLlm() && $this->hasCredential($configured)) {
+            return $configured;
+        }
+
+        foreach (ApiService::llm() as $service) {
+            if ($this->hasCredential($service)) {
+                return $service;
+            }
+        }
+
+        return null;
     }
 }

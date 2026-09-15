@@ -1,14 +1,14 @@
 <?php
 
-use App\Http\Controllers\Admin\ApiProviderController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\EmailVerificationController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\ConnectionController;
 use App\Http\Controllers\CurrentTeamController;
-use App\Http\Controllers\InfluencerController;
 use App\Http\Controllers\LocaleController;
+use App\Http\Controllers\PersonaController;
+use App\Http\Controllers\PersonaMediaController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\TeamInvitationController;
@@ -35,11 +35,16 @@ Route::middleware('auth')->group(function () {
 
 Route::post('/locale', [LocaleController::class, 'update'])->middleware('throttle:6,1')->name('locale.update');
 
+// Signed, short-lived links for private persona media — consumed by external
+// APIs as image references, so no session/auth is required.
+Route::get('/personas/{persona}/media/{path}', [PersonaMediaController::class, 'show'])
+    ->where('path', '.*')
+    ->name('personas.media');
+
 Route::middleware(['auth', 'verified', 'super-admin'])
     ->prefix('backend')
     ->name('backend.')
     ->group(function () {
-        Route::resource('api-provider', ApiProviderController::class);
         Route::resource('user', UserController::class);
     });
 
@@ -52,15 +57,18 @@ Route::middleware(['auth', 'verified', 'team.context'])->group(function () {
     Route::post('/current-team', [CurrentTeamController::class, 'update'])->name('current-team.update');
 
     Route::get('/connections', [ConnectionController::class, 'index'])->name('connections.index');
-    Route::post('/connections/{provider}', [ConnectionController::class, 'store'])->name('connections.store');
+    Route::post('/connections/default-llm', [ConnectionController::class, 'updateDefaultLlm'])->name('connections.default-llm');
+    Route::post('/connections/{service}', [ConnectionController::class, 'store'])->name('connections.store');
+    Route::delete('/connections/{service}', [ConnectionController::class, 'disconnect'])->name('connections.disconnect');
 
-    Route::get('/influencers', [InfluencerController::class, 'index'])->name('influencers.index');
-    Route::get('/influencers/create', [InfluencerController::class, 'create'])->name('influencers.create');
-    Route::post('/influencers', [InfluencerController::class, 'store'])->name('influencers.store');
-    Route::get('/influencers/{influencer}', [InfluencerController::class, 'show'])->name('influencers.show');
-    Route::get('/influencers/{influencer}/status', [InfluencerController::class, 'status'])->name('influencers.status');
-    Route::post('/influencers/{influencer}/sets', [InfluencerController::class, 'generateSet'])->name('influencers.generate-set');
-    Route::post('/influencers/{influencer}/choose', [InfluencerController::class, 'choose'])->name('influencers.choose');
+    Route::get('/personas', [PersonaController::class, 'index'])->name('personas.index');
+    Route::get('/personas/create', [PersonaController::class, 'create'])->name('personas.create');
+    Route::post('/personas', [PersonaController::class, 'store'])->name('personas.store');
+    Route::get('/personas/{persona}', [PersonaController::class, 'show'])->name('personas.show');
+    Route::get('/personas/{persona}/status', [PersonaController::class, 'status'])->name('personas.status');
+    Route::post('/personas/{persona}/sets', [PersonaController::class, 'generateSet'])->name('personas.generate-set');
+    Route::post('/personas/{persona}/choose', [PersonaController::class, 'choose'])->name('personas.choose');
+    Route::delete('/personas/{persona}', [PersonaController::class, 'destroy'])->name('personas.destroy');
 });
 
 Route::middleware(['auth', 'verified', 'team.context'])->group(function () {

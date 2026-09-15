@@ -22,3 +22,6 @@ Never inject `@json($arrayOrObject)` into a double-quoted HTML attribute (e.g. A
 
 ## Never call __() inside Alpine :bindings on plain HTML elements
 On a plain HTML element, `:attr="..."` is an Alpine binding evaluated in JS, so `__()` (a PHP function) throws `ReferenceError: __ is not defined` and breaks the whole Alpine component (symptoms: wizard buttons/clicks stop working). Only Blade components (`<x-... :prop="__()">`) treat a leading colon as a server-side prop binding. For plain elements use `attr="{{ __('...') }}"`. To interpolate a PHP string into an Alpine expression, embed it as `'{{ __('...') }}'` (JS string), not a bare call.
+
+## Use $root.submit(), never $el.submit(), in Alpine methods
+In an Alpine component method invoked from `@click`, `$el` is the CLICKED element (e.g. a button), not the component root — so `this.$el.submit()` throws "submit is not a function" and the form never submits. Use `this.$root.submit()` (Alpine `$root` is always the `x-data` element) or `this.$refs.form.submit()`. This broke the wizard's final Create button.

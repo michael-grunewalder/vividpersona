@@ -1,7 +1,7 @@
 @php
     $navigation = [
         ['label' => __('nav.overview'), 'url' => route('dashboard'), 'active' => request()->routeIs('dashboard')],
-        ['label' => __('nav.influencers'), 'url' => route('influencers.index'), 'active' => request()->routeIs('influencers.*')],
+        ['label' => __('nav.personas'), 'url' => route('personas.index'), 'active' => request()->routeIs('personas.*')],
         ['label' => __('nav.connections'), 'url' => route('connections.index'), 'active' => request()->routeIs('connections.*')],
     ];
 @endphp
@@ -33,11 +33,6 @@
             <li>
                 <a href="{{ route('backend.user.index') }}" class="{{ request()->routeIs('backend.user.*') ? 'active' : '' }}">
                     {{ __('admin.nav.users') }}
-                </a>
-            </li>
-            <li>
-                <a href="{{ route('backend.api-provider.index') }}" class="{{ request()->routeIs('backend.api-provider.*') ? 'active' : '' }}">
-                    {{ __('admin.nav.providers') }}
                 </a>
             </li>
         @endif

@@ -9,12 +9,10 @@ it('shows sign in and register links to guests', function () {
         ->assertDontSee('Sign out');
 });
 
-it('shows the dashboard and sign out links to authenticated users', function () {
+it('redirects authenticated users to the dashboard', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user)
         ->get('/')
-        ->assertSee(route('logout'), false)
-        ->assertSee(route('dashboard'), false)
-        ->assertDontSee(route('register'));
+        ->assertRedirect(route('dashboard'));
 });
