@@ -1,7 +1,8 @@
 @php
-    $modelOptions = $providers
-        ->mapWithKeys(fn ($item) => [$item['service']->value => $item['models']])
-        ->all();
+    $currentModelId = $persona->ai_model_id;
+    $lastSet = collect($persona->generation_history ?? [])->last();
+    $initialMode = $lastSet['mode'] ?? 'default';
+    $initialModels = collect($lastSet['models'] ?? [])->pluck('ai_model_id')->all();
 @endphp
 
 <x-layouts.dashboard :title="$persona->name">
@@ -121,7 +122,7 @@
                             <h3 class="card-title text-base">
                                 {{ __('personas.set_label') }} <span x-text="i + 1"></span>
                             </h3>
-                            <p class="mt-1 text-xs text-base-content/60" x-text="(set.provider || '') + ' · ' + (set.model || '') + ' · ' + (set.aspect_ratio || '')"></p>
+                            <p class="mt-1 text-xs text-base-content/60" x-text="(set.models ? set.models.map(m => m.label).join(' + ') : (set.model || set.provider || '')) + ' · ' + (set.aspect_ratio || '')"></p>
                         </div>
 
                         <span x-show="set.status === 'generating'" class="badge badge-primary">
@@ -133,7 +134,12 @@
                         <template x-for="image in set.images" :key="image.id">
                             <div class="space-y-2">
                                 <template x-if="image.url">
-                                    <img :src="image.url" alt="" class="w-full rounded-box border border-base-300" />
+                                    <div class="relative overflow-hidden rounded-box border border-base-300">
+                                        <img :src="image.url" alt="" class="w-full" />
+                                        <div class="absolute inset-x-0 bottom-0 bg-black/50 px-2 py-1 text-center text-xs text-white">
+                                            <span x-text="image.model || set.model || ''"></span>
+                                        </div>
+                                    </div>
                                 </template>
 
                                 <template x-if="!image.url">
@@ -160,34 +166,30 @@
             </div>
         </template>
 
-        @if ($providers->isNotEmpty() && $persona->reference_image_path === null)
+        @if (! empty($models) && $persona->reference_image_path === null)
             <x-card :title="__('personas.generate_more')" :subtitle="__('personas.generate_more_hint')" class="mt-8">
-                <form method="POST" action="{{ route('personas.generate-set', $persona) }}" class="grid max-w-2xl gap-4 sm:grid-cols-3">
+                <form method="POST" action="{{ route('personas.generate-set', $persona) }}" class="space-y-4">
                     @csrf
 
-                    <x-forms.select
-                        name="provider"
-                        :label="__('personas.provider')"
-                        :options="$providers->mapWithKeys(fn ($item) => [$item['service']->value => $item['service']->label()])->all()"
-                        :selected="old('provider', $persona->provider)"
+                    <x-generation-settings
+                        :catalog="$models"
+                        :default-model="$defaultModel"
+                        :mode="$initialMode"
+                        :initial-model="$currentModelId"
+                        :initial-models="$initialModels"
                     />
 
-                    <x-forms.select
-                        name="model"
-                        :label="__('personas.model')"
-                        :options="collect($modelOptions[(string) $persona->provider] ?? [])->mapWithKeys(fn ($label, $key) => [$key => $label])->all()"
-                        :selected="old('model', $persona->model)"
-                    />
-
-                    <x-forms.select
-                        name="aspect_ratio"
-                        :label="__('personas.aspect_ratio')"
-                        :options="['9:16' => '9:16', '16:9' => '16:9']"
-                        :selected="old('aspect_ratio', $persona->aspect_ratio)"
-                    />
+                    <div class="grid max-w-2xl gap-4 sm:grid-cols-3">
+                        <x-forms.select
+                            name="aspect_ratio"
+                            :label="__('personas.aspect_ratio')"
+                            :options="['9:16' => '9:16', '16:9' => '16:9']"
+                            :selected="old('aspect_ratio', $persona->aspect_ratio)"
+                        />
+                    </div>
 
                     @if ($llmProviders->isNotEmpty())
-                        <div class="sm:col-span-3">
+                        <div class="max-w-2xl">
                             <x-forms.select
                                 name="llm_provider"
                                 :label="__('personas.ai_provider')"
@@ -197,7 +199,7 @@
                         </div>
                     @endif
 
-                    <div class="sm:col-span-3">
+                    <div>
                         <x-button type="submit">{{ __('personas.generate_more') }}</x-button>
                     </div>
                 </form>

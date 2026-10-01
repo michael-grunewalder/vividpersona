@@ -1,4 +1,18 @@
 <x-layouts.dashboard :title="$team->name">
+    @php
+        $humanBytes = static function (int $bytes): string {
+            $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+            $value = (float) $bytes;
+            $i = 0;
+            while ($value >= 1024 && $i < count($units) - 1) {
+                $value /= 1024;
+                $i++;
+            }
+
+            return round($value, 1).' '.$units[$i];
+        };
+    @endphp
+
     <x-page-header :title="$team->name" :subtitle="__('teams.show_subtitle')">
         <x-slot:actions>
             <x-button :href="route('teams.index')" variant="ghost">{{ __('teams.back') }}</x-button>
@@ -18,6 +32,62 @@
                         :value="old('name', $team->name)"
                         :error="$errors->first('name')"
                         required
+                    />
+                </div>
+
+                <x-button type="submit">{{ __('teams.save') }}</x-button>
+            </form>
+        </x-card>
+
+        <x-card :title="__('teams.provider')" :subtitle="__('teams.provider_subtitle')" class="mt-8">
+            <form method="POST" action="{{ route('teams.provider.update', $team) }}" class="flex max-w-lg items-end gap-3">
+                @csrf
+                @method('PATCH')
+
+                <div class="flex-1">
+                    <x-forms.select
+                        name="default_media_provider"
+                        :label="__('teams.default_provider')"
+                        :options="collect(['' => __('teams.default_provider_none')])->union($mediaServices->mapWithKeys(fn ($service) => [$service->value => $service->label()]))->all()"
+                        :selected="old('default_media_provider', $team->default_media_provider)"
+                        :error="$errors->first('default_media_provider')"
+                    />
+                </div>
+
+                <x-button type="submit">{{ __('teams.save') }}</x-button>
+            </form>
+        </x-card>
+
+        <x-card :title="__('teams.storage')" :subtitle="__('teams.storage_subtitle')" class="mt-8">
+            <p class="text-sm text-base-content/80">
+                @if ($team->hasStorageQuota())
+                    {{ __('teams.storage_usage', ['used' => $humanBytes($team->storageUsedBytes()), 'limit' => $humanBytes($team->storageLimitBytes())]) }}
+                @else
+                    {{ __('teams.storage_usage_unlimited', ['used' => $humanBytes($team->storageUsedBytes())]) }}
+                @endif
+            </p>
+
+            <div class="mt-3 h-2 w-full max-w-lg overflow-hidden rounded-full bg-base-200">
+                <div
+                    class="h-full bg-primary"
+                    style="width: {{ $team->hasStorageQuota() ? min(100, round($team->storageUsedBytes() / max(1, $team->storageLimitBytes()) * 100)) : 0 }}%"
+                ></div>
+            </div>
+
+            <form method="POST" action="{{ route('teams.storage.update', $team) }}" class="mt-4 flex max-w-lg items-end gap-3">
+                @csrf
+                @method('PATCH')
+
+                <div class="flex-1">
+                    <x-forms.input
+                        name="storage_limit_gb"
+                        type="number"
+                        min="0"
+                        step="1"
+                        :label="__('teams.storage_limit_gb')"
+                        :value="old('storage_limit_gb', $team->storageLimitBytes() !== null ? round($team->storageLimitBytes() / 1024 / 1024 / 1024, 2) : '')"
+                        :hint="__('teams.storage_limit_hint')"
+                        :error="$errors->first('storage_limit_gb')"
                     />
                 </div>
 

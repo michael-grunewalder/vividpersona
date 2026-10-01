@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'slug', 'owner_id', 'default_llm'])]
+#[Fillable(['name', 'slug', 'owner_id', 'default_llm', 'default_media_provider', 'storage_limit_bytes', 'storage_used_bytes'])]
 class Team extends Model
 {
     /** @use HasFactory<TeamFactory> */
@@ -93,5 +93,66 @@ class Team extends Model
         }
 
         return null;
+    }
+
+    /**
+     * The team's chosen media provider, falling back to the first connected one.
+     */
+    public function defaultMediaService(): ?ApiService
+    {
+        $configured = ApiService::tryFrom((string) $this->default_media_provider);
+
+        if ($configured?->isMedia() && $this->hasCredential($configured)) {
+            return $configured;
+        }
+
+        foreach (ApiService::media() as $service) {
+            if ($this->hasCredential($service)) {
+                return $service;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The purchased storage quota in bytes, or null when unlimited.
+     */
+    public function storageLimitBytes(): ?int
+    {
+        return $this->storage_limit_bytes !== null ? (int) $this->storage_limit_bytes : null;
+    }
+
+    /**
+     * The number of bytes currently stored for this team.
+     */
+    public function storageUsedBytes(): int
+    {
+        return (int) ($this->storage_used_bytes ?? 0);
+    }
+
+    /**
+     * The bytes still available under the quota, or null when unlimited.
+     */
+    public function storageRemainingBytes(): ?int
+    {
+        $limit = $this->storageLimitBytes();
+
+        return $limit === null ? null : max(0, $limit - $this->storageUsedBytes());
+    }
+
+    public function hasStorageQuota(): bool
+    {
+        return $this->storageLimitBytes() !== null;
+    }
+
+    /**
+     * Whether storing the given number of additional bytes fits the quota.
+     */
+    public function canStoreBytes(int $bytes): bool
+    {
+        $limit = $this->storageLimitBytes();
+
+        return $limit === null || $this->storageUsedBytes() + $bytes <= $limit;
     }
 }

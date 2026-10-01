@@ -14,9 +14,9 @@ Before planning or editing, find the row whose globs match the file's path and r
 | resources/views/personas/** | .ai/rules/influencers.md |
 | app/Jobs/GenerateImageJob.php, app/Jobs/** | .ai/rules/jobs.md |
 | lang/** | .ai/rules/lang.md |
-| app/Services/Media/** | .ai/rules/media.md |
+| app/Services/Media/**, app/Services/Media/PersonaMediaService.php | .ai/rules/media.md |
 | app/Http/Middleware/** | .ai/rules/middleware.md |
-| app/Models/**, app/Models/Persona.php | .ai/rules/models.md |
+| app/Models/**, app/Models/Persona.php, app/Models/AiModel.php | .ai/rules/models.md |
 | app/Support/Prompt/** | .ai/rules/prompt.md |
 | app/Services/** | .ai/rules/services.md |
 | app/ValueObjects/** | .ai/rules/value-objects.md |

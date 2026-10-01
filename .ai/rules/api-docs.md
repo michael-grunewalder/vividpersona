@@ -5,7 +5,7 @@ In this file you find links to the API endpoints in our supported APIs
 ## WaveSpeed
 - General: https://wavespeed.ai/docs/rest-api
 - Getting Started: https://wavespeed.ai/docs/get-started-api
-- Live model catalog: `GET https://api.wavespeed.ai/api/v3/models` (Bearer key; filter `type === 'text-to-image'`)
+- Live model catalog (for verifying `ai_models` endpoint ids): `GET https://api.wavespeed.ai/api/v3/models` (Bearer key)
 
 ## FAL.AI
 - API Documentation: https://fal.ai/docs/documentation
@@ -13,24 +13,22 @@ In this file you find links to the API endpoints in our supported APIs
 
 ## Supported Image Models
 
-Per-provider endpoint IDs. The wizard lists a provider's supported models and
-maps the chosen aspect ratio (`9:16` / `16:9`) to each model's own size
-parameter (see `app/Services/Media/MediaModelCatalog.php` and
-`config/services.php`).
+The wizard's model list is the admin-curated `ai_models` table (see `.ai/rules/media.md`),
+filtered to the team's default media provider. The `options` JSON carries each model's
+size mapping (the 9:16 / 16:9 aspect ratio → the model's own parameter) and request defaults.
 
-| Model | FAL.AI endpoint | WaveSpeed family |
+Seeded families (both FAL and WaveSpeed where available):
+
+| Family | Example FAL endpoint | Example WaveSpeed model_id |
 | --- | --- | --- |
-| Seedream 4 | `fal-ai/bytedance/seedream/v4/text-to-image` | seedream |
-| Seedream 5 (Pro / Lite) | `bytedance/seedream/v5/pro/text-to-image`, `bytedance/seedream/v5/lite/text-to-image` | seedream |
-| GPT Image 1.5 | `fal-ai/gpt-image-1.5` | gpt-image |
-| GPT Image 2 | `openai/gpt-image-2` | gpt-image |
-| GPT Image 2.5 (Flare / Sunburst) | `openai/gpt-image-2.5/flare/text-to-image`, `openai/gpt-image-2.5/sunburst/text-to-image` | gpt-image |
-| Ideogram V4 | `ideogram/v4` | ideogram |
-| Nano Banana (1 / 2) | `fal-ai/nano-banana`, `fal-ai/nano-banana-2` | nano-banana |
-| Flux (dev / schnell) | `fal-ai/flux/dev`, `fal-ai/flux/schnell` | flux |
+| Qwen Image | `alibaba/qwen-image-3/text-to-image` | `alibaba/qwen-image-3/text-to-image` |
+| WAN (text-to-image) | `fal-ai/wan/v2.7/text-to-image`, `.../v2.7/pro/...` | `wavespeed-ai/wan-2.1/text-to-image`, `alibaba/wan-2.7/text-to-image-pro` |
+| Seedream | `fal-ai/bytedance/seedream/v4/text-to-image`, `bytedance/seedream/v5/{pro,lite}/text-to-image` | `bytedance/seedream-v5.0-pro` |
+| GPT Image | `openai/gpt-image-2`, `openai/gpt-image-2.5/{flare,sunburst}/text-to-image` | `openai/gpt-image-2/text-to-image` |
+| FLUX | `fal-ai/flux/{dev,schnell}` | `wavespeed-ai/flux-2-dev/text-to-image` |
+| Ideogram | `ideogram/v4` | `ideogram-ai/ideogram-v3-balanced` |
 
 Notes:
-- WaveSpeed uses its live model catalog (exact `model_id`s and request schema),
-  filtered by the `model_families` keywords in `config/services.php`.
-- GPT Image 2 / 2.5 use `image_size` presets kept at 4:3 to satisfy the
-  model's minimum-pixel constraint; GPT Image 1.5 uses literal dimensions.
+- WaveSpeed model ids change often — verify against `GET /api/v3/models` with a live key before trusting a seed row.
+- GPT Image / WAN keep presets that satisfy each model's minimum-pixel constraint; some models use literal dimensions (width/height).
+- Add any new supported model as an `ai_models` row via `/backend/ai-model`, not by editing config.

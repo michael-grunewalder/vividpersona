@@ -35,6 +35,11 @@
                     {{ __('admin.nav.users') }}
                 </a>
             </li>
+            <li>
+                <a href="{{ route('backend.ai-model.index') }}" class="{{ request()->routeIs('backend.ai-model.*') ? 'active' : '' }}">
+                    {{ __('admin.nav.ai_models') }}
+                </a>
+            </li>
         @endif
     </ul>
 

@@ -61,6 +61,7 @@ it('creates an persona for the current team and dispatches generation', function
     $user = User::factory()->create();
     $team = personaTeam($user);
     TeamApiCredential::factory()->forService(ApiService::Fal)->create(['team_id' => $team->getKey()]);
+    $model = imageModel();
 
     $this->actingAs($user)->post('/personas', [
         'name' => 'Kayla',
@@ -70,8 +71,8 @@ it('creates an persona for the current team and dispatches generation', function
         'vibe_words' => 'Streetwear',
         'niches' => ['Fashion'],
         'aspect_ratio' => '9:16',
-        'provider' => 'fal',
-        'model' => 'fal-ai/nano-banana-2',
+        'mode' => 'custom',
+        'ai_model_id' => $model->getKey(),
         'ethnicity' => 'White',
         'skin_tone' => 'medium',
         'hair_color' => 'blonde',
@@ -87,6 +88,9 @@ it('creates an persona for the current team and dispatches generation', function
         ->and($persona->name)->toBe('Kayla')
         ->and($persona->physical_desc)->toContain('blonde')
         ->and($persona->vibe_words)->toBe(['Streetwear'])
+        ->and($persona->ai_model_id)->toBe($model->getKey())
+        ->and($persona->provider)->toBe('fal')
+        ->and($persona->model)->toBe($model->endpoint)
         ->and($persona->status)->toBe('generating')
         ->and($persona->generation_history)->toHaveCount(1)
         ->and($persona->generation_history[0]['status'])->toBe('generating')
@@ -95,18 +99,253 @@ it('creates an persona for the current team and dispatches generation', function
     Queue::assertPushed(GenerateImageJob::class, 3);
 });
 
+it('rejects a model that is not offered by the team default provider', function () {
+    Queue::fake();
+
+    $user = User::factory()->create();
+    $team = personaTeam($user);
+    TeamApiCredential::factory()->forService(ApiService::Fal)->create(['team_id' => $team->getKey()]);
+    $model = imageModel(['provider' => ApiService::WaveSpeed, 'endpoint' => 'wavespeed-ai/flux-2-dev/text-to-image']);
+
+    $this->actingAs($user)->post('/personas', [
+        'name' => 'Kayla',
+        'gender' => 'Female',
+        'age' => 18,
+        'personality' => 50,
+        'aspect_ratio' => '9:16',
+        'mode' => 'custom',
+        'ai_model_id' => $model->getKey(),
+    ])->assertStatus(422);
+
+    expect(Persona::query()->count())->toBe(0);
+});
+
+it('rejects a disabled model', function () {
+    Queue::fake();
+
+    $user = User::factory()->create();
+    $team = personaTeam($user);
+    TeamApiCredential::factory()->forService(ApiService::Fal)->create(['team_id' => $team->getKey()]);
+    $model = imageModel(['enabled' => false]);
+
+    $this->actingAs($user)->post('/personas', [
+        'name' => 'Kayla',
+        'gender' => 'Female',
+        'age' => 18,
+        'personality' => 50,
+        'aspect_ratio' => '9:16',
+        'mode' => 'custom',
+        'ai_model_id' => $model->getKey(),
+    ])->assertStatus(422);
+
+    expect(Persona::query()->count())->toBe(0);
+});
+
+it('uses the team default model in default mode', function () {
+    Queue::fake();
+
+    $user = User::factory()->create();
+    $team = personaTeam($user);
+    TeamApiCredential::factory()->forService(ApiService::Fal)->create(['team_id' => $team->getKey()]);
+    $default = imageModel(['family' => 'wan', 'name' => 'WAN', 'version' => '2.7', 'variant' => 'pro']);
+    imageModel(['family' => 'seedream', 'name' => 'Seedream', 'version' => '5', 'variant' => 'pro', 'endpoint' => 'bytedance/seedream/v5/pro/text-to-image', 'sort' => 1]);
+
+    $this->actingAs($user)->post('/personas', [
+        'name' => 'Kayla',
+        'gender' => 'Female',
+        'age' => 18,
+        'personality' => 50,
+        'aspect_ratio' => '9:16',
+        'mode' => 'default',
+    ])->assertRedirect();
+
+    $persona = Persona::query()->firstOrFail();
+
+    expect($persona->ai_model_id)->toBe($default->getKey())
+        ->and($persona->generation_history[0]['mode'])->toBe('default')
+        ->and($persona->generation_history[0]['models'][0]['ai_model_id'])->toBe($default->getKey())
+        ->and($persona->generation_history[0]['models'])->toHaveCount(1)
+        ->and($persona->generation_history[0]['total'])->toBe(3);
+
+    Queue::assertPushed(GenerateImageJob::class, 3);
+});
+
+it('generates one image per model in three-models mode', function () {
+    Queue::fake();
+
+    $user = User::factory()->create();
+    $team = personaTeam($user);
+    TeamApiCredential::factory()->forService(ApiService::Fal)->create(['team_id' => $team->getKey()]);
+    $wan = imageModel(['family' => 'wan', 'name' => 'WAN', 'version' => '2.7', 'variant' => 'pro']);
+    $seedream = imageModel(['family' => 'seedream', 'name' => 'Seedream', 'version' => '5', 'variant' => 'pro', 'endpoint' => 'bytedance/seedream/v5/pro/text-to-image']);
+    $flux = imageModel(['family' => 'flux', 'name' => 'FLUX', 'version' => null, 'variant' => 'dev', 'endpoint' => 'fal-ai/flux/dev']);
+
+    $this->actingAs($user)->post('/personas', [
+        'name' => 'Kayla',
+        'gender' => 'Female',
+        'age' => 18,
+        'personality' => 50,
+        'aspect_ratio' => '9:16',
+        'mode' => 'three_models',
+        'ai_model_ids' => [$wan->getKey(), $seedream->getKey(), $flux->getKey()],
+    ])->assertRedirect();
+
+    $persona = Persona::query()->firstOrFail();
+
+    $set = $persona->generation_history[0];
+
+    expect($set['mode'])->toBe('three_models')
+        ->and($set['models'])->toHaveCount(3)
+        ->and(collect($set['models'])->pluck('ai_model_id')->all())->toBe([$wan->getKey(), $seedream->getKey(), $flux->getKey()])
+        ->and($set['total'])->toBe(3)
+        ->and($persona->ai_model_id)->toBe($wan->getKey());
+
+    Queue::assertPushed(GenerateImageJob::class, 3);
+
+    $pushed = Queue::pushed(GenerateImageJob::class)->map(fn ($job) => $job->aiModel->getKey());
+    expect($pushed)->toHaveCount(3)
+        ->and($pushed->all())->toBe([$wan->getKey(), $seedream->getKey(), $flux->getKey()]);
+});
+
+it('allows the same model on multiple three-model slots', function () {
+    Queue::fake();
+
+    $user = User::factory()->create();
+    $team = personaTeam($user);
+    TeamApiCredential::factory()->forService(ApiService::Fal)->create(['team_id' => $team->getKey()]);
+    $model = imageModel();
+
+    $this->actingAs($user)->post('/personas', [
+        'name' => 'Kayla',
+        'gender' => 'Female',
+        'age' => 18,
+        'personality' => 50,
+        'aspect_ratio' => '9:16',
+        'mode' => 'three_models',
+        'ai_model_ids' => [$model->getKey(), $model->getKey(), $model->getKey()],
+    ])->assertRedirect();
+
+    $persona = Persona::query()->firstOrFail();
+
+    expect($persona->generation_history[0]['total'])->toBe(3);
+
+    Queue::assertPushed(GenerateImageJob::class, 3);
+});
+
+it('requires three models in three-models mode', function () {
+    Queue::fake();
+
+    $user = User::factory()->create();
+    $team = personaTeam($user);
+    TeamApiCredential::factory()->forService(ApiService::Fal)->create(['team_id' => $team->getKey()]);
+    $model = imageModel();
+
+    $this->actingAs($user)->post('/personas', [
+        'name' => 'Kayla',
+        'gender' => 'Female',
+        'age' => 18,
+        'personality' => 50,
+        'aspect_ratio' => '9:16',
+        'mode' => 'three_models',
+        'ai_model_ids' => [$model->getKey(), $model->getKey()],
+    ])->assertSessionHasErrors('ai_model_ids');
+
+    expect(Persona::query()->count())->toBe(0);
+});
+
+it('generates an extra set with a different model', function () {
+    Queue::fake();
+
+    $user = User::factory()->create();
+    $team = personaTeam($user);
+    TeamApiCredential::factory()->forService(ApiService::Fal)->create(['team_id' => $team->getKey()]);
+    $model = imageModel();
+    $persona = Persona::factory()->create(['team_id' => $team->getKey()]);
+
+    $this->actingAs($user)
+        ->post(route('personas.generate-set', $persona), [
+            'mode' => 'custom',
+            'ai_model_id' => $model->getKey(),
+            'aspect_ratio' => '16:9',
+        ])
+        ->assertRedirect();
+
+    $persona->refresh();
+
+    expect($persona->status)->toBe('generating')
+        ->and($persona->generation_history)->toHaveCount(1)
+        ->and($persona->generation_history[0]['mode'])->toBe('custom')
+        ->and($persona->generation_history[0]['models'][0]['ai_model_id'])->toBe($model->getKey())
+        ->and($persona->generation_history[0]['models'][0]['label'])->toBe($model->label())
+        ->and($persona->generation_history[0]['aspect_ratio'])->toBe('16:9');
+
+    Queue::assertPushed(GenerateImageJob::class, 3);
+});
+
+it('shows the model family cascade in the wizard when models exist', function () {
+    $user = User::factory()->create();
+    $team = personaTeam($user);
+    TeamApiCredential::factory()->forService(ApiService::Fal)->create(['team_id' => $team->getKey()]);
+    imageModel(['family' => 'wan', 'name' => 'WAN', 'version' => '2.7', 'variant' => 'pro']);
+
+    $this->actingAs($user)
+        ->get('/personas/create')
+        ->assertOk()
+        ->assertSee('WAN');
+});
+
+it('renders the generate-more model selector on the show page', function () {
+    $user = User::factory()->create();
+    $team = personaTeam($user);
+    TeamApiCredential::factory()->forService(ApiService::Fal)->create(['team_id' => $team->getKey()]);
+    imageModel(['family' => 'wan', 'name' => 'WAN', 'version' => '2.7', 'variant' => 'pro']);
+    $persona = Persona::factory()->create(['team_id' => $team->getKey()]);
+
+    $this->actingAs($user)
+        ->get(route('personas.show', $persona))
+        ->assertOk()
+        ->assertSee('WAN')
+        ->assertSee('Generate another set');
+});
+
+it('renders the per-image model banner overlay', function () {
+    $user = User::factory()->create();
+    $team = personaTeam($user);
+    $model = imageModel();
+    $persona = Persona::factory()->create([
+        'team_id' => $team->getKey(),
+        'generation_history' => [[
+            'id' => 'set1',
+            'mode' => 'custom',
+            'models' => [['ai_model_id' => $model->getKey(), 'provider' => 'fal', 'endpoint' => $model->endpoint, 'label' => $model->label()]],
+            'aspect_ratio' => '9:16',
+            'status' => 'ready',
+            'images' => [['id' => 'img1', 'url' => 'https://cdn.test/a.png', 'prompt' => 'p', 'model' => $model->label()]],
+        ]],
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('personas.show', $persona))
+        ->assertOk()
+        ->assertSee('bg-black/50')
+        ->assertSee('image.model');
+});
+
 it('generates a set of images and marks the persona ready', function () {
     $user = User::factory()->create();
     $team = personaTeam($user);
     TeamApiCredential::factory()->forService(ApiService::Fal)->create(['team_id' => $team->getKey()]);
+    $model = imageModel();
     $setId = 'set1';
     $persona = Persona::factory()->create([
         'team_id' => $team->getKey(),
         'status' => 'generating',
         'generation_history' => [[
             'id' => $setId,
+            'ai_model_id' => $model->getKey(),
             'provider' => 'fal',
-            'model' => 'fal-ai/nano-banana-2',
+            'model' => $model->label(),
+            'endpoint' => $model->endpoint,
             'aspect_ratio' => '9:16',
             'status' => 'generating',
             'images' => [],
@@ -121,7 +360,7 @@ it('generates a set of images and marks the persona ready', function () {
     ]);
 
     foreach (['p1', 'p2', 'p3'] as $prompt) {
-        (new GenerateImageJob($persona, $setId, 'fal', 'fal-ai/nano-banana-2', '9:16', $prompt))->handle(app(MediaService::class));
+        (new GenerateImageJob($persona, $setId, $model, '9:16', $prompt))->handle(app(MediaService::class));
     }
 
     $persona->refresh();
@@ -131,19 +370,21 @@ it('generates a set of images and marks the persona ready', function () {
         ->and($persona->generation_history)->toHaveCount(1)
         ->and($persona->generation_history[0]['status'])->toBe('ready')
         ->and($persona->generation_history[0]['images'])->toHaveCount(3)
-        ->and($persona->generation_history[0]['images'][0]['url'])->toBe('https://cdn.test/img.png');
+        ->and($persona->generation_history[0]['images'][0]['url'])->toBe('https://cdn.test/img.png')
+        ->and($persona->generation_history[0]['images'][0]['model'])->toBe($model->label());
 });
 
 it('marks the persona failed when the service has no credential', function () {
     $user = User::factory()->create();
     $team = personaTeam($user);
+    $model = imageModel();
     $persona = Persona::factory()->create([
         'team_id' => $team->getKey(),
         'status' => 'generating',
         'generation_history' => [['id' => 'set1', 'status' => 'generating', 'images' => [], 'total' => 3]],
     ]);
 
-    (new GenerateImageJob($persona, 'set1', 'fal', 'fal-ai/nano-banana-2', '9:16', 'p'))->handle(app(MediaService::class));
+    (new GenerateImageJob($persona, 'set1', $model, '9:16', 'p'))->handle(app(MediaService::class));
 
     $persona->refresh();
 
@@ -155,6 +396,7 @@ it('keeps a set when an individual image fails', function () {
     $user = User::factory()->create();
     $team = personaTeam($user);
     TeamApiCredential::factory()->forService(ApiService::Fal)->create(['team_id' => $team->getKey()]);
+    $model = imageModel();
     $persona = Persona::factory()->create([
         'team_id' => $team->getKey(),
         'status' => 'generating',
@@ -165,7 +407,7 @@ it('keeps a set when an individual image fails', function () {
         ->push(['request_id' => 'req1'])
         ->push(['status' => 'FAILED']);
 
-    (new GenerateImageJob($persona, 'set1', 'fal', 'fal-ai/nano-banana-2', '9:16', 'p'))->handle(app(MediaService::class));
+    (new GenerateImageJob($persona, 'set1', $model, '9:16', 'p'))->handle(app(MediaService::class));
 
     $persona->refresh();
 
@@ -229,11 +471,11 @@ it('lets the user pick an image and stores it as the only reference', function (
 
     expect(Storage::disk('private')->exists($persona->reference_image_path))->toBeTrue()
         ->and(Storage::disk('private')->get($persona->reference_image_path))->toBe('image-bytes');
+
+    expect($team->fresh()->storageUsedBytes())->toBe(strlen('image-bytes'));
 });
 
 it('rejects picking an image twice (locked after pick)', function () {
-    Storage::fake('private');
-
     $user = User::factory()->create();
     $team = personaTeam($user);
     $persona = Persona::factory()->create([
@@ -417,6 +659,7 @@ it('stores reference uploads in the private persona media folder', function () {
     $user = User::factory()->create();
     $team = personaTeam($user);
     TeamApiCredential::factory()->forService(ApiService::Fal)->create(['team_id' => $team->getKey()]);
+    $model = imageModel();
     Queue::fake();
 
     $this->actingAs($user)->post('/personas', [
@@ -426,13 +669,78 @@ it('stores reference uploads in the private persona media folder', function () {
         'personality' => 50,
         'niches' => ['Fashion'],
         'aspect_ratio' => '9:16',
-        'provider' => 'fal',
-        'model' => 'fal-ai/nano-banana-2',
+        'mode' => 'custom',
+        'ai_model_id' => $model->getKey(),
         'face_ref' => UploadedFile::fake()->image('face.jpg'),
     ])->assertRedirect();
 
     $persona = Persona::query()->firstOrFail();
 
     expect($persona->face_ref_path)->toStartWith($persona->mediaFolder().'/')
-        ->and(Storage::disk('private')->exists($persona->face_ref_path))->toBeTrue();
+        ->and(Storage::disk('private')->exists($persona->face_ref_path))->toBeTrue()
+        ->and($team->fresh()->storageUsedBytes())->toBeGreaterThan(0);
+});
+
+it('enforces the team storage limit when picking an image', function () {
+    Storage::fake('private');
+
+    Http::fake(['https://cdn.test/a.png' => Http::response('image-bytes', 200, ['Content-Type' => 'image/png'])]);
+
+    $user = User::factory()->create();
+    $team = personaTeam($user);
+    $team->update(['storage_limit_bytes' => 5]);
+    $persona = Persona::factory()->create([
+        'team_id' => $team->getKey(),
+        'generation_history' => [[
+            'id' => 'set1',
+            'provider' => 'fal',
+            'model' => 'm',
+            'aspect_ratio' => '9:16',
+            'status' => 'ready',
+            'images' => [['id' => 'img1', 'url' => 'https://cdn.test/a.png', 'prompt' => 'p']],
+        ]],
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('personas.choose', $persona), ['image_id' => 'img1'])
+        ->assertSessionHasErrors('image_id');
+
+    expect($persona->fresh()->reference_image_path)->toBeNull()
+        ->and(Storage::disk('private')->files($persona->mediaFolder()))->toBeEmpty()
+        ->and($team->fresh()->storageUsedBytes())->toBe(0);
+});
+
+it('removes stored media and usage when a persona is deleted', function () {
+    Storage::fake('private');
+
+    $user = User::factory()->create();
+    $team = personaTeam($user);
+    $persona = Persona::factory()->create(['team_id' => $team->getKey()]);
+    $path = $persona->mediaFolder().'/ref.png';
+    Storage::disk('private')->put($path, 'image-bytes');
+    $team->update(['storage_used_bytes' => strlen('image-bytes')]);
+
+    $this->actingAs($user)
+        ->delete(route('personas.destroy', $persona))
+        ->assertRedirect(route('personas.index'));
+
+    expect(Storage::disk('private')->exists($path))->toBeFalse()
+        ->and($team->fresh()->storageUsedBytes())->toBe(0);
+});
+
+it('updates the team storage limit', function () {
+    $user = User::factory()->create();
+    $team = personaTeam($user);
+
+    $this->actingAs($user)
+        ->patch(route('teams.storage.update', $team), ['storage_limit_gb' => 100])
+        ->assertRedirect(route('teams.show', $team));
+
+    expect($team->fresh()->storageLimitBytes())->toBe(100 * 1024 * 1024 * 1024);
+
+    $this->actingAs($user)
+        ->patch(route('teams.storage.update', $team), ['storage_limit_gb' => ''])
+        ->assertRedirect(route('teams.show', $team));
+
+    expect($team->fresh()->storageLimitBytes())->toBeNull();
 });

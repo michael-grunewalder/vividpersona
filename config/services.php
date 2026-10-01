@@ -49,68 +49,6 @@ return [
         'type' => 'media',
         'base_url' => env('FAL_BASE_URL', 'https://queue.fal.run'),
         'validate_url' => 'https://fal.run/users/me',
-        'models' => [
-            'fal-ai/bytedance/seedream/v4/text-to-image' => [
-                'label' => 'Seedream 4',
-                'size' => ['param' => 'image_size', 'sizes' => ['9:16' => 'portrait_16_9', '16:9' => 'landscape_16_9']],
-                'defaults' => ['num_images' => 1, 'output_format' => 'png'],
-            ],
-            'bytedance/seedream/v5/pro/text-to-image' => [
-                'label' => 'Seedream 5 Pro',
-                'size' => ['param' => 'image_size', 'sizes' => ['9:16' => 'portrait_16_9', '16:9' => 'landscape_16_9']],
-                'defaults' => ['num_images' => 1, 'output_format' => 'png'],
-            ],
-            'bytedance/seedream/v5/lite/text-to-image' => [
-                'label' => 'Seedream 5 Lite',
-                'size' => ['param' => 'image_size', 'sizes' => ['9:16' => 'portrait_16_9', '16:9' => 'landscape_16_9']],
-                'defaults' => ['num_images' => 1],
-            ],
-            'fal-ai/gpt-image-1.5' => [
-                'label' => 'GPT Image 1.5',
-                'size' => ['param' => 'image_size', 'sizes' => ['9:16' => '1024x1536', '16:9' => '1536x1024']],
-                'defaults' => ['num_images' => 1, 'quality' => 'medium'],
-            ],
-            'openai/gpt-image-2' => [
-                'label' => 'GPT Image 2',
-                'size' => ['param' => 'image_size', 'sizes' => ['9:16' => 'portrait_4_3', '16:9' => 'landscape_4_3']],
-                'defaults' => ['num_images' => 1, 'quality' => 'medium'],
-            ],
-            'openai/gpt-image-2.5/flare/text-to-image' => [
-                'label' => 'GPT Image 2.5 Flare',
-                'size' => ['param' => 'image_size', 'sizes' => ['9:16' => 'portrait_4_3', '16:9' => 'landscape_4_3']],
-                'defaults' => ['num_images' => 1, 'quality' => 'medium'],
-            ],
-            'openai/gpt-image-2.5/sunburst/text-to-image' => [
-                'label' => 'GPT Image 2.5 Sunburst',
-                'size' => ['param' => 'image_size', 'sizes' => ['9:16' => 'portrait_4_3', '16:9' => 'landscape_4_3']],
-                'defaults' => ['num_images' => 1, 'quality' => 'medium'],
-            ],
-            'ideogram/v4' => [
-                'label' => 'Ideogram V4',
-                'size' => ['param' => 'image_size', 'sizes' => ['9:16' => 'portrait_16_9', '16:9' => 'landscape_16_9']],
-                'defaults' => ['num_images' => 1],
-            ],
-            'fal-ai/nano-banana' => [
-                'label' => 'Nano Banana',
-                'size' => ['param' => 'aspect_ratio', 'sizes' => ['9:16' => '9:16', '16:9' => '16:9']],
-                'defaults' => ['num_images' => 1, 'resolution' => '1K'],
-            ],
-            'fal-ai/nano-banana-2' => [
-                'label' => 'Nano Banana 2',
-                'size' => ['param' => 'aspect_ratio', 'sizes' => ['9:16' => '9:16', '16:9' => '16:9']],
-                'defaults' => ['num_images' => 1, 'resolution' => '1K'],
-            ],
-            'fal-ai/flux/dev' => [
-                'label' => 'Flux Dev',
-                'size' => ['param' => 'image_size', 'sizes' => ['9:16' => 'portrait_16_9', '16:9' => 'landscape_16_9']],
-                'defaults' => ['num_images' => 1],
-            ],
-            'fal-ai/flux/schnell' => [
-                'label' => 'Flux Schnell',
-                'size' => ['param' => 'image_size', 'sizes' => ['9:16' => 'portrait_16_9', '16:9' => 'landscape_16_9']],
-                'defaults' => ['num_images' => 1],
-            ],
-        ],
     ],
 
     'wavespeed' => [
@@ -118,9 +56,6 @@ return [
         'type' => 'media',
         'base_url' => env('WAVESPEED_BASE_URL', 'https://api.wavespeed.ai'),
         'validate_url' => 'https://api.wavespeed.ai/api/v3/balance',
-        'models_url' => 'https://api.wavespeed.ai/api/v3/models',
-        'model_families' => ['seedream', 'gpt-image', 'ideogram', 'nano-banana', 'flux'],
-        'models' => [],
     ],
 
     'claude' => [

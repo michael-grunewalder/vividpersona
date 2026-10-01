@@ -12,14 +12,7 @@
         'buildsMale' => \App\Support\PersonaOptions::BUILDS_MALE,
         'ethnicities' => \App\Support\PersonaOptions::ETHNICITIES,
         'aspectRatios' => \App\Support\PersonaOptions::ASPECT_RATIOS,
-        'providers' => $providers
-            ->map(fn ($item) => [
-                'machine_name' => $item['service']->value,
-                'friendly_name' => $item['service']->label(),
-                'models' => $item['models'],
-            ])
-            ->values()
-            ->all(),
+        'models' => $models,
         'llmProviders' => $llmProviders
             ->map(fn ($item) => ['value' => $item->value, 'label' => $item->label()])
             ->values()
@@ -42,15 +35,9 @@
                 backstory: '', personality: 50,
                 ethnicity: '', skinTone: '', hairColor: '', hairLength: 'Short', hairTexture: 'Straight',
                 eyeColor: '', build: 'Petite', uniqueFeatures: '',
-                vibeWords: '', aspectRatio: '9:16', provider: '', model: '', llmProvider: '', enhance: false,
+                vibeWords: '', aspectRatio: '9:16', llmProvider: '', enhance: false,
             },
             step: 1,
-            init() {
-                if (this.catalog.providers.length) {
-                    this.data.provider = this.catalog.providers[0].machine_name;
-                    this.data.model = Object.keys(this.catalog.providers[0].models)[0] || '';
-                }
-            },
             next() {
                 if (this.step === 1 && (! this.data.name || ! this.data.gender)) return;
                 if (this.step === 1 && this.data.age && Number(this.data.age) < 18) return;
@@ -66,10 +53,6 @@
                 this.data.hairTexture = this.catalog.hairTextures[Math.floor(Math.random() * this.catalog.hairTextures.length)];
                 this.data.eyeColor = this.catalog.eyeColors[Math.floor(Math.random() * this.catalog.eyeColors.length)];
                 this.data.build = this.builds[Math.floor(Math.random() * this.builds.length)];
-            },
-            get models() {
-                const p = this.catalog.providers.find(p => p.machine_name === this.data.provider);
-                return p ? p.models : {};
             },
             get hairLengths() { return this.data.gender === 'Male' ? this.catalog.hairLengthsMale : this.catalog.hairLengthsFemale; },
             get builds() { return this.data.gender === 'Male' ? this.catalog.buildsMale : this.catalog.buildsFemale; },
@@ -101,8 +84,6 @@
         <input type="hidden" name="unique_features" x-model="data.uniqueFeatures" />
         <input type="hidden" name="vibe_words" x-model="data.vibeWords" />
         <input type="hidden" name="aspect_ratio" x-model="data.aspectRatio" />
-        <input type="hidden" name="provider" x-model="data.provider" />
-        <input type="hidden" name="model" x-model="data.model" />
         <input type="hidden" name="llm_provider" x-model="data.llmProvider" />
         <input type="hidden" name="enhance" value="1" x-show="data.enhance" />
 
@@ -221,31 +202,35 @@
 
             {{-- Step 5: Generate --}}
             <x-card :title="__('personas.generate_title')" x-show="step === 5" class="lg:col-span-2">
-                <div class="grid gap-4 sm:grid-cols-3">
-                    <x-forms.select name="provider" :label="__('personas.provider')" :options="collect($catalog['providers'])->mapWithKeys(fn($p) => [$p['machine_name'] => $p['friendly_name']])->all()" x-model="data.provider" @change="data.model = (() => { const p = catalog.providers.find(p => p.machine_name === $el.value); return p && p.models ? Object.keys(p.models)[0] || '' : ''; })()" />
-                    <x-forms.select name="model" :label="__('personas.model')" :options="[]" x-model="data.model">
-                        <template x-for="(label, key) in models" :key="key">
-                            <option :value="key" :selected="key === data.model" x-text="label"></option>
-                        </template>
-                    </x-forms.select>
-                    <x-forms.select name="aspect_ratio" :label="__('personas.aspect_ratio')" :options="['9:16' => '9:16', '16:9' => '16:9']" x-model="data.aspectRatio" />
+                <div class="space-y-4">
+                    <div x-show="catalog.models.length">
+                        <x-generation-settings
+                            :catalog="$models"
+                            :default-model="$defaultModel"
+                            mode="default"
+                        />
+                    </div>
+
+                    <div class="grid gap-4 sm:grid-cols-3">
+                        <x-forms.select name="aspect_ratio" :label="__('personas.aspect_ratio')" :options="['9:16' => '9:16', '16:9' => '16:9']" x-model="data.aspectRatio" />
+                    </div>
+
+                    <div class="max-w-xl" x-show="catalog.llmProviders.length">
+                        <x-forms.select
+                            name="llm_provider"
+                            :label="__('personas.ai_provider')"
+                            :options="collect(['' => __('personas.ai_provider_default')])->union($llmProviders->mapWithKeys(fn ($item) => [$item->value => $item->label()]))->all()"
+                            x-model="data.llmProvider"
+                        />
+                    </div>
+
+                    <label class="flex cursor-pointer items-center gap-2 text-sm text-base-content/70">
+                        <input type="checkbox" name="enhance" value="1" x-model="data.enhance" class="checkbox checkbox-sm" />
+                        {{ __('personas.enhance') }}
+                    </label>
+
+                    <p class="text-xs text-base-content/50" x-show="! catalog.models.length">{{ __('personas.connect_hint') }}</p>
                 </div>
-
-                <div class="mt-4 max-w-xl" x-show="catalog.llmProviders.length">
-                    <x-forms.select
-                        name="llm_provider"
-                        :label="__('personas.ai_provider')"
-                        :options="collect(['' => __('personas.ai_provider_default')])->union($llmProviders->mapWithKeys(fn ($item) => [$item->value => $item->label()]))->all()"
-                        x-model="data.llmProvider"
-                    />
-                </div>
-
-                <label class="mt-4 flex cursor-pointer items-center gap-2 text-sm text-base-content/70">
-                    <input type="checkbox" name="enhance" value="1" x-model="data.enhance" class="checkbox checkbox-sm" />
-                    {{ __('personas.enhance') }}
-                </label>
-
-                <p class="mt-2 text-xs text-base-content/50" x-show="! data.provider">{{ __('personas.connect_hint') }}</p>
             </x-card>
         </div>
 

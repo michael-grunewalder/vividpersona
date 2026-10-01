@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AiModelController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\EmailVerificationController;
@@ -46,6 +47,7 @@ Route::middleware(['auth', 'verified', 'super-admin'])
     ->name('backend.')
     ->group(function () {
         Route::resource('user', UserController::class);
+        Route::resource('ai-model', AiModelController::class)->except(['show']);
     });
 
 Route::view('/dashboard', 'dashboard')->middleware(['auth', 'verified', 'team.context'])->name('dashboard');
@@ -77,6 +79,8 @@ Route::middleware(['auth', 'verified', 'team.context'])->group(function () {
     Route::post('/teams', [TeamController::class, 'store'])->name('teams.store');
     Route::get('/teams/{team}', [TeamController::class, 'show'])->name('teams.show');
     Route::patch('/teams/{team}', [TeamController::class, 'update'])->name('teams.update');
+    Route::patch('/teams/{team}/storage', [TeamController::class, 'updateStorage'])->name('teams.storage.update');
+    Route::patch('/teams/{team}/provider', [TeamController::class, 'updateProvider'])->name('teams.provider.update');
 
     Route::post('/teams/{team}/invitations', [TeamInvitationController::class, 'store'])->name('teams.invitations.store');
     Route::post('/invitations/{invitation}/accept', [TeamInvitationController::class, 'accept'])->name('teams.invitations.accept');

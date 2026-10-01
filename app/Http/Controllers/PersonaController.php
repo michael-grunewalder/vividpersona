@@ -2,19 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\AiModelType;
 use App\Enums\ApiService;
+use App\Enums\GenerationMode;
+use App\Exceptions\StorageLimitExceededException;
 use App\Jobs\GenerateImageJob;
+use App\Models\AiModel;
 use App\Models\Persona;
 use App\Models\Team;
 use App\Services\Ai\PersonaPromptService;
-use App\Services\Media\MediaModelCatalog;
+use App\Services\Media\AiModelCatalog;
+use App\Services\Media\PersonaMediaService;
 use App\Support\PersonaOptions;
 use App\Support\Prompt\PersonaPromptBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -38,7 +42,8 @@ class PersonaController extends Controller
 
         return view('personas.create', [
             'options' => PersonaOptions::class,
-            'providers' => $this->mediaProviders($team),
+            'models' => $this->imageModels($team),
+            'defaultModel' => $this->defaultImageModel($team)?->label(),
             'llmProviders' => $this->llmProviders($team),
         ]);
     }
@@ -46,6 +51,7 @@ class PersonaController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $team = $this->team($request);
+        $mode = (string) $request->input('mode');
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -65,12 +71,17 @@ class PersonaController extends Controller
             'unique_features' => ['nullable', 'string', 'max:255'],
             'vibe_words' => ['nullable', 'string', 'max:255'],
             'aspect_ratio' => ['required', 'in:9:16,16:9'],
-            'provider' => ['required', Rule::in(ApiService::mediaValues())],
-            'model' => ['required', 'string', 'max:255'],
+            'mode' => ['required', Rule::enum(GenerationMode::class)],
+            'ai_model_id' => ['nullable', 'string', 'max:26', Rule::exists('ai_models', 'id'), Rule::requiredIf($mode === 'custom')],
+            'ai_model_ids' => Rule::when($mode === 'three_models', ['required', 'array', 'size:3'], ['nullable', 'array']),
+            'ai_model_ids.*' => ['required', 'string', 'max:26', Rule::exists('ai_models', 'id')],
             'llm_provider' => ['nullable', Rule::in(ApiService::llmValues())],
             'face_ref' => ['nullable', 'image', 'max:4096'],
             'style_ref' => ['nullable', 'image', 'max:4096'],
         ]);
+
+        $models = $this->resolveGenerationModels($request, $team, GenerationMode::from($validated['mode']));
+        $model = $models[0];
 
         $persona = Persona::query()->create([
             'team_id' => $team->getKey(),
@@ -92,28 +103,33 @@ class PersonaController extends Controller
             'unique_features' => $validated['unique_features'] ?? null,
             'vibe_words' => filled($validated['vibe_words'] ?? null) ? [$validated['vibe_words']] : [],
             'aspect_ratio' => $validated['aspect_ratio'],
-            'provider' => $validated['provider'],
-            'model' => $validated['model'],
+            'ai_model_id' => $model->getKey(),
+            'provider' => $model->provider->value,
+            'model' => $model->endpoint,
             'llm_provider' => $validated['llm_provider'] ?? null,
             'status' => 'pending',
         ]);
 
-        if ($request->hasFile('face_ref')) {
-            $file = $request->file('face_ref');
-            $persona->update(['face_ref_path' => $file->storeAs($persona->mediaFolder(), 'face-ref-'.Str::ulid().'.'.$file->extension(), 'private')]);
-        }
+        try {
+            if ($request->hasFile('face_ref')) {
+                $persona->update(['face_ref_path' => app(PersonaMediaService::class)->storeUploaded($persona, $request->file('face_ref'), 'face-ref')]);
+            }
 
-        if ($request->hasFile('style_ref')) {
-            $file = $request->file('style_ref');
-            $persona->update(['style_ref_path' => $file->storeAs($persona->mediaFolder(), 'style-ref-'.Str::ulid().'.'.$file->extension(), 'private')]);
+            if ($request->hasFile('style_ref')) {
+                $persona->update(['style_ref_path' => app(PersonaMediaService::class)->storeUploaded($persona, $request->file('style_ref'), 'style-ref')]);
+            }
+        } catch (StorageLimitExceededException) {
+            $persona->delete();
+
+            return back()->withErrors(['storage' => __('personas.storage_limit')])->withInput();
         }
 
         $persona->update(['physical_desc' => PersonaPromptBuilder::physicalDesc($persona->promptData())]);
 
         $this->startGeneration(
             $persona,
-            $validated['provider'],
-            $validated['model'],
+            GenerationMode::from($validated['mode']),
+            $models,
             $validated['aspect_ratio'],
             enhance: $request->boolean('enhance'),
             llmProvider: $validated['llm_provider'] ?? null,
@@ -130,7 +146,8 @@ class PersonaController extends Controller
 
         return view('personas.show', [
             'persona' => $persona,
-            'providers' => $this->mediaProviders($team),
+            'models' => $this->imageModels($team),
+            'defaultModel' => $this->defaultImageModel($team)?->label(),
             'llmProviders' => $this->llmProviders($team),
         ]);
     }
@@ -154,17 +171,24 @@ class PersonaController extends Controller
             return back()->withErrors(['generation' => __('personas.already_chosen')]);
         }
 
+        $team = $persona->team;
+        $mode = (string) $request->input('mode');
+
         $validated = $request->validate([
-            'provider' => ['required', Rule::in(ApiService::mediaValues())],
-            'model' => ['required', 'string', 'max:255'],
+            'mode' => ['required', Rule::enum(GenerationMode::class)],
+            'ai_model_id' => ['nullable', 'string', 'max:26', Rule::exists('ai_models', 'id'), Rule::requiredIf($mode === 'custom')],
+            'ai_model_ids' => Rule::when($mode === 'three_models', ['required', 'array', 'size:3'], ['nullable', 'array']),
+            'ai_model_ids.*' => ['required', 'string', 'max:26', Rule::exists('ai_models', 'id')],
             'aspect_ratio' => ['required', 'in:9:16,16:9'],
             'llm_provider' => ['nullable', Rule::in(ApiService::llmValues())],
         ]);
 
+        $models = $this->resolveGenerationModels($request, $team, GenerationMode::from($validated['mode']));
+
         $this->startGeneration(
             $persona,
-            $validated['provider'],
-            $validated['model'],
+            GenerationMode::from($validated['mode']),
+            $models,
             $validated['aspect_ratio'],
             enhance: false,
             llmProvider: $validated['llm_provider'] ?? null,
@@ -202,9 +226,15 @@ class PersonaController extends Controller
             return back()->withErrors(['image_id' => __('personas.image_download_failed')]);
         }
 
-        $path = $this->storeMediaFromUrl($persona, (string) $selected['url']);
+        $media = app(PersonaMediaService::class);
 
-        $this->clearStoredMedia($persona);
+        try {
+            $path = $media->storeFromUrl($persona, (string) $selected['url']);
+        } catch (StorageLimitExceededException) {
+            return back()->withErrors(['image_id' => __('personas.storage_limit')]);
+        }
+
+        $this->clearStoredMedia($persona, $media);
 
         $persona->update([
             'main_image' => $path,
@@ -219,39 +249,15 @@ class PersonaController extends Controller
     }
 
     /**
-     * Download a remote image into the persona's private media folder and
-     * return the stored relative path.
-     */
-    private function storeMediaFromUrl(Persona $persona, string $url): string
-    {
-        $response = Http::timeout(30)->get($url);
-
-        if ($response->failed()) {
-            abort(422, __('personas.image_download_failed'));
-        }
-
-        $contentType = (string) $response->header('Content-Type');
-        $extension = match (true) {
-            str_contains($contentType, 'png') => 'png',
-            str_contains($contentType, 'webp') => 'webp',
-            default => 'jpeg',
-        };
-
-        $path = $persona->mediaFolder().'/'.(string) Str::ulid().'.'.$extension;
-
-        Storage::disk('private')->put($path, $response->body());
-
-        return $path;
-    }
-
-    /**
      * Delete the persona's previously stored local media files.
      */
-    private function clearStoredMedia(Persona $persona): void
+    private function clearStoredMedia(Persona $persona, PersonaMediaService $media): void
     {
+        $team = $persona->team;
+
         foreach (array_filter([$persona->main_image, $persona->reference_image_path, $persona->face_ref_path, $persona->style_ref_path]) as $path) {
-            if (is_string($path) && ! str_contains($path, '://') && Storage::disk('private')->exists($path)) {
-                Storage::disk('private')->delete($path);
+            if (is_string($path) && ! str_contains($path, '://')) {
+                $media->delete($team, $path);
             }
         }
     }
@@ -259,6 +265,13 @@ class PersonaController extends Controller
     public function destroy(Request $request, Persona $persona): RedirectResponse
     {
         $this->authorizeTeam($persona);
+
+        $team = $persona->team;
+        $media = app(PersonaMediaService::class);
+
+        foreach (Storage::disk('private')->allFiles($persona->mediaFolder()) as $file) {
+            $media->delete($team, $file);
+        }
 
         $persona->delete();
 
@@ -277,11 +290,22 @@ class PersonaController extends Controller
 
     /**
      * Build the variation prompts, create a new generation set and dispatch one
-     * image job per prompt.
+     * image job per (model, prompt) pair.
+     *
+     * @param  array<int, AiModel>  $models
      */
-    private function startGeneration(Persona $persona, string $provider, string $model, string $aspectRatio, bool $enhance = false, ?string $llmProvider = null): void
+    private function startGeneration(Persona $persona, GenerationMode $mode, array $models, string $aspectRatio, bool $enhance = false, ?string $llmProvider = null): void
     {
-        $prompts = app(PersonaPromptService::class)->build($persona, $model, $aspectRatio, $enhance, $llmProvider);
+        $prompts = app(PersonaPromptService::class)->build($persona, $models[0]->endpoint, $aspectRatio, $enhance, $llmProvider);
+
+        $plan = match ($mode) {
+            GenerationMode::ThreeModels => array_map(
+                fn (AiModel $model, int $index): array => ['model' => $model, 'prompt' => $prompts[$index]],
+                $models,
+                array_keys($prompts),
+            ),
+            default => array_map(fn (string $prompt): array => ['model' => $models[0], 'prompt' => $prompt], $prompts),
+        };
 
         $setId = (string) Str::ulid();
 
@@ -289,38 +313,85 @@ class PersonaController extends Controller
             'status' => 'generating',
             'generation_history' => array_merge($persona->generation_history ?? [], [[
                 'id' => $setId,
-                'provider' => $provider,
-                'model' => $model,
+                'mode' => $mode->value,
+                'models' => collect($models)->map(fn (AiModel $model): array => [
+                    'ai_model_id' => $model->getKey(),
+                    'provider' => $model->provider->value,
+                    'endpoint' => $model->endpoint,
+                    'label' => $model->label(),
+                ])->all(),
                 'aspect_ratio' => $aspectRatio,
                 'status' => 'generating',
                 'images' => [],
-                'total' => count($prompts),
+                'total' => count($plan),
                 'created_at' => now()->toISOString(),
             ]]),
         ]);
 
-        foreach ($prompts as $prompt) {
-            GenerateImageJob::dispatch($persona, $setId, $provider, $model, $aspectRatio, $prompt);
+        foreach ($plan as $item) {
+            GenerateImageJob::dispatch($persona, $setId, $item['model'], $aspectRatio, $item['prompt']);
         }
     }
 
     /**
-     * The media services the team has connected, with their model catalogs.
+     * The image model catalog for the team's default media provider.
      *
-     * @return Collection<int, array{service: ApiService, models: array<string, string>}>
+     * @return array<int, array{key: string, label: string, versions: array<int, array{key: string, label: string, variants: array<int, array{key: string, label: string, id: string}>}>}>
      */
-    private function mediaProviders(Team $team): Collection
+    private function imageModels(Team $team): array
     {
-        $catalog = app(MediaModelCatalog::class);
+        $provider = $team->defaultMediaService();
 
-        return collect(ApiService::media())
-            ->filter(fn (ApiService $service) => $team->hasCredential($service))
-            ->map(fn (ApiService $service) => [
-                'service' => $service,
-                'models' => $catalog->models($service, $team->credentialFor($service)?->apiKey())->all(),
-            ])
-            ->filter(fn (array $item) => $item['models'] !== [])
-            ->values();
+        return $provider ? app(AiModelCatalog::class)->tree(AiModelType::Image, $provider) : [];
+    }
+
+    /**
+     * The team's default image model, used by the default generation mode.
+     */
+    private function defaultImageModel(Team $team): ?AiModel
+    {
+        $provider = $team->defaultMediaService();
+
+        return $provider ? app(AiModelCatalog::class)->defaultFor(AiModelType::Image, $provider) : null;
+    }
+
+    /**
+     * Resolve the models for a generation mode, verifying each is an enabled
+     * image model offered by the team's default media provider.
+     *
+     * @return array<int, AiModel>
+     */
+    private function resolveGenerationModels(Request $request, Team $team, GenerationMode $mode): array
+    {
+        $models = match ($mode) {
+            GenerationMode::Default => [$this->defaultImageModel($team)],
+            GenerationMode::Custom => [$this->findImageModelForTeam((string) $request->input('ai_model_id'), $team)],
+            GenerationMode::ThreeModels => array_map(
+                fn (string $id): AiModel => $this->findImageModelForTeam($id, $team),
+                (array) $request->input('ai_model_ids'),
+            ),
+        };
+
+        abort_unless(count($models) > 0 && ! in_array(null, $models, true), 422);
+
+        return array_values($models);
+    }
+
+    /**
+     * Load a model and verify it is an enabled image model for the team's
+     * default media provider.
+     */
+    private function findImageModelForTeam(string $id, Team $team): AiModel
+    {
+        $model = app(AiModelCatalog::class)->find($id);
+
+        $valid = $model !== null
+            && $model->type === AiModelType::Image
+            && $model->provider === $team->defaultMediaService();
+
+        abort_unless($valid, 422);
+
+        return $model;
     }
 
     /**

@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Teams\CreateTeam;
+use App\Enums\ApiService;
 use App\Enums\TeamInvitationStatus;
 use App\Enums\TeamRole;
 use App\Models\Team;
 use App\Models\TeamInvitation;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class TeamController extends Controller
@@ -88,6 +90,9 @@ class TeamController extends Controller
             'team' => $team,
             'members' => $members,
             'roles' => TeamRole::cases(),
+            'mediaServices' => collect(ApiService::media())
+                ->filter(fn (ApiService $service) => $team->hasCredential($service))
+                ->values(),
         ]);
     }
 
@@ -105,5 +110,41 @@ class TeamController extends Controller
         $team->update(['name' => $request->name]);
 
         return redirect()->route('teams.show', $team)->with('success', __('teams.renamed'));
+    }
+
+    /**
+     * Set the team's storage quota (in GB). Empty means unlimited.
+     */
+    public function updateStorage(Request $request, Team $team): RedirectResponse
+    {
+        $this->authorize('update', $team);
+
+        $validated = $request->validate([
+            'storage_limit_gb' => ['nullable', 'numeric', 'min:0', 'max:1048576'],
+        ]);
+
+        $limit = filled($validated['storage_limit_gb'] ?? null)
+            ? (int) round((float) $validated['storage_limit_gb'] * 1024 * 1024 * 1024)
+            : null;
+
+        $team->update(['storage_limit_bytes' => $limit]);
+
+        return redirect()->route('teams.show', $team)->with('success', __('teams.storage_updated'));
+    }
+
+    /**
+     * Set the team's default media (image) provider.
+     */
+    public function updateProvider(Request $request, Team $team): RedirectResponse
+    {
+        $this->authorize('update', $team);
+
+        $validated = $request->validate([
+            'default_media_provider' => ['nullable', Rule::in(ApiService::mediaValues())],
+        ]);
+
+        $team->update(['default_media_provider' => $validated['default_media_provider'] ?? null]);
+
+        return redirect()->route('teams.show', $team)->with('success', __('teams.provider_updated'));
     }
 }

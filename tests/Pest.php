@@ -1,5 +1,8 @@
 <?php
 
+use App\Enums\AiModelType;
+use App\Enums\ApiService;
+use App\Models\AiModel;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
 
@@ -47,4 +50,20 @@ expect()->extend('toBeOne', function () {
 function something()
 {
     // ..
+}
+
+/**
+ * Create an enabled image model, defaulting to a FAL nano-banana endpoint.
+ */
+function imageModel(array $attributes = []): AiModel
+{
+    return AiModel::factory()->create(array_merge([
+        'type' => AiModelType::Image,
+        'provider' => ApiService::Fal,
+        'endpoint' => 'fal-ai/nano-banana-2',
+        'options' => [
+            'size' => ['param' => 'image_size', 'sizes' => ['9:16' => 'portrait_16_9', '16:9' => 'landscape_16_9']],
+            'defaults' => ['num_images' => 1],
+        ],
+    ], $attributes));
 }

@@ -2,14 +2,13 @@
 
 namespace App\Jobs;
 
-use App\Enums\ApiService;
+use App\Models\AiModel;
 use App\Models\Persona;
 use App\Services\Media\MediaService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Str;
 use Throwable;
-use ValueError;
 
 /**
  * Generates a single image for one prompt of an persona's generation set.
@@ -23,8 +22,7 @@ class GenerateImageJob implements ShouldQueue
     public function __construct(
         public Persona $persona,
         public string $setId,
-        public string $provider,
-        public string $model,
+        public AiModel $aiModel,
         public string $aspectRatio,
         public string $prompt,
     ) {}
@@ -32,14 +30,15 @@ class GenerateImageJob implements ShouldQueue
     public function handle(MediaService $media): void
     {
         $persona = $this->persona;
+        $model = $this->aiModel;
 
-        try {
-            $service = ApiService::from($this->provider);
-        } catch (ValueError) {
-            $this->failPersona($persona, __('personas.job_error_provider', ['provider' => $this->provider]));
+        if ($model === null || ! $model->enabled) {
+            $this->failPersona($persona, __('personas.job_error_model'));
 
             return;
         }
+
+        $service = $model->provider;
 
         if (! $service->isMedia() || ! $persona->team->hasCredential($service)) {
             $this->failPersona($persona, __('personas.job_error_connection'));
@@ -50,13 +49,13 @@ class GenerateImageJob implements ShouldQueue
         $credentials = $persona->team->credentialsFor($service);
 
         try {
-            $urls = $media->generateImages($this->provider, $credentials, $this->model, $this->prompt, $this->aspectRatio);
+            $urls = $media->generateImages($model, $credentials, $this->prompt, $this->aspectRatio);
 
-            $image = ['id' => (string) Str::ulid(), 'url' => $urls[0] ?? null, 'prompt' => $this->prompt];
+            $image = ['id' => (string) Str::ulid(), 'url' => $urls[0] ?? null, 'prompt' => $this->prompt, 'model' => $model->label()];
         } catch (Throwable $e) {
             report($e);
 
-            $image = ['id' => (string) Str::ulid(), 'url' => null, 'prompt' => $this->prompt, 'error' => $this->message($e)];
+            $image = ['id' => (string) Str::ulid(), 'url' => null, 'prompt' => $this->prompt, 'error' => $this->message($e), 'model' => $model->label()];
         }
 
         $this->appendImage($persona, $image);

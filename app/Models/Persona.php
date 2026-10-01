@@ -35,6 +35,7 @@ use Illuminate\Support\Facades\URL;
     'provider',
     'model',
     'llm_provider',
+    'ai_model_id',
     'status',
     'last_error',
     'main_image',
@@ -73,6 +74,14 @@ class Persona extends Model
     public function team(): BelongsTo
     {
         return $this->belongsTo(Team::class);
+    }
+
+    /**
+     * @return BelongsTo<AiModel, $this>
+     */
+    public function aiModel(): BelongsTo
+    {
+        return $this->belongsTo(AiModel::class);
     }
 
     /**

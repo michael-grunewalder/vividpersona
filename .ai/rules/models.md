@@ -2,6 +2,7 @@
 paths:
   - 'app/Models/**'
   - app/Models/Persona.php
+  - app/Models/AiModel.php
 ---
 
 # Models
@@ -14,3 +15,6 @@ User avatar resolution: `User::avatarUrl()` returns the uploaded avatar (Storage
 
 ## Persona private media + 20-min signed reference links
 All persona images live in the `private` disk (root `storage_path('private')`) under `{team_id}/personas/{persona_id}/media/images` (`Persona::mediaFolder()`). Private files are shared with external image APIs via `Persona::mediaUrl()` / `referenceImageUrl()`: a `URL::temporarySignedRoute('personas.media', now()->addMinutes(20), [persona, path])` link served by `PersonaMediaController` (validates signature + that the path is inside the persona's media folder). Never use the `public` disk for persona images. Signed URLs expire after 20 minutes.
+
+## ai_models row = one concrete provider endpoint
+ai_models stores one row per concrete provider endpoint (unique provider+endpoint). type (llm/image/video/audio), family, name, version, variant (pro/standard…), provider (ApiService media), endpoint, options JSON (size param+sizes for 9:16/16:9 and request defaults), enabled, sort. The wizard only shows enabled type=image rows for the team's defaultMediaService(); MediaService builds the payload from options.
